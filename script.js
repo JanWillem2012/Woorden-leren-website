@@ -1,31 +1,16 @@
 /* =============================================
-    WOORDMEESTER - APP LOGIC
-    Integratie: Clerk (Auth) & Firebase (DB)
+    WOORDMEESTER - APP LOGIC (FIXED)
     =============================================
 */
 
 // --- FIREBASE IMPORTS ---
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-analytics.js";
 import { 
-    getFirestore, 
-    collection, 
-    addDoc, 
-    getDocs, 
-    query, 
-    where, 
-    deleteDoc, 
-    doc,
-    serverTimestamp 
+    getFirestore, collection, addDoc, getDocs, 
+    query, where, deleteDoc, doc, serverTimestamp 
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-// --- CLERK IMPORT (Via CDN Script in JS werkt anders, we gebruiken dynamische import) ---
-import Clerk from 'https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.mjs';
-
 // --- CONFIGURATIE ---
-// LET OP: Normaal gesproken gebruik je Environment Variables.
-const clerkPubKey = 'pk_test_bm9ibGUtZmVsaW5lLTgxLmNsZXJrLmFjY291bnRzLmRldiQ';
-
 const firebaseConfig = {
   apiKey: "AIzaSyBtW4BpxiEUOkscWS0POVSSmY57qFFemnQ",
   authDomain: "website-woorden-leren.firebaseapp.com",
@@ -36,58 +21,46 @@ const firebaseConfig = {
   measurementId: "G-JQ7HP8CJ04"
 };
 
-// --- INITIALISATIE ---
-const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
-const db = getFirestore(app);
+// Variabelen
+let db;
+let clerk = null;
+let user = null;
 
-const clerk = new Clerk(clerkPubKey);
-await clerk.load(); // Wacht tot Clerk geladen is
-
-// --- STATE MANAGEMENT ---
+// State Management
 const state = {
-    user: null,
-    currentList: null, // De lijst die we nu aan het bewerken of oefenen zijn
-    practiceData: {
-        words: [],
-        currentIndex: 0,
-        score: 0,
-        mode: null // 'flashcard' of 'input'
-    }
+    currentList: null,
+    practiceData: { words: [], currentIndex: 0, score: 0 }
 };
 
-// --- DOM ELEMENTEN ---
+// DOM Elementen
 const els = {
-    views: document.querySelectorAll('.view'),
-    authContainer: document.getElementById('auth-container'),
     loadingScreen: document.getElementById('loading-screen'),
-    
-    // Dashboard
+    loadingText: document.getElementById('loading-text'),
+    errorFallback: document.getElementById('error-fallback'),
+    btnForceLoad: document.getElementById('btn-force-load'),
+    authContainer: document.getElementById('auth-container'),
+    views: document.querySelectorAll('.view'),
+    // Dashboard & Editor
     listsContainer: document.getElementById('lists-container'),
     btnCreate: document.getElementById('btn-create-new'),
-    
-    // Editor
     inputTitle: document.getElementById('list-title'),
     inputContent: document.getElementById('list-content'),
     btnSave: document.getElementById('btn-save-list'),
     wordCountBadge: document.getElementById('word-count-badge'),
     btnBackDash: document.getElementById('btn-back-dashboard'),
-    
-    // Practice Select
+    // Practice
     btnBackDash2: document.getElementById('btn-back-dash-2'),
     practiceTitle: document.getElementById('practice-title-display'),
     modeFlash: document.getElementById('mode-flashcards'),
     modeInput: document.getElementById('mode-input'),
-    
-    // Flashcards
+    // Flashcard UI
     card: document.getElementById('flashcard'),
     fcQuestion: document.getElementById('fc-question'),
     fcAnswer: document.getElementById('fc-answer'),
     fcProgress: document.getElementById('fc-progress'),
     btnFcNext: document.getElementById('btn-fc-next'),
     btnFcPrev: document.getElementById('btn-fc-prev'),
-
-    // Input Game
+    // Input Game UI
     ipQuestion: document.getElementById('ip-question'),
     ipInput: document.getElementById('ip-input'),
     btnIpCheck: document.getElementById('btn-ip-check'),
@@ -96,235 +69,269 @@ const els = {
     ipProgress: document.getElementById('ip-progress-bar'),
     ipResults: document.getElementById('ip-results'),
     ipFinalScore: document.getElementById('ip-final-score'),
-    
-    // General
     quitButtons: document.querySelectorAll('.btn-quit-practice'),
 };
 
-// --- HELPER FUNCTIES ---
+// --- INITIALISATIE MET ERROR HANDLING ---
+
+async function initApp() {
+    console.log("App initialisatie gestart...");
+    
+    // Timeout timer: als laden te lang duurt, toon error knop
+    const timeoutTimer = setTimeout(() => {
+        if(!els.loadingScreen.classList.contains('fade-out')) {
+            console.warn("Laden duurt lang...");
+            els.errorFallback.classList.remove('hidden');
+            els.loadingText.textContent = "Verbinding duurt langer dan verwacht...";
+        }
+    }, 4000);
+
+    try {
+        // 1. Firebase Starten
+        console.log("Firebase initialiseren...");
+        const app = initializeApp(firebaseConfig);
+        db = getFirestore(app);
+        console.log("Firebase OK.");
+
+        // 2. Wachten op Clerk (via script tag)
+        console.log("Wachten op Clerk...");
+        if (!window.Clerk) {
+            await new Promise((resolve) => {
+                const checkClerk = setInterval(() => {
+                    if (window.Clerk) {
+                        clearInterval(checkClerk);
+                        resolve();
+                    }
+                }, 100);
+            });
+        }
+        
+        clerk = window.Clerk;
+        console.log("Clerk gevonden. Laden...");
+        await clerk.load();
+        console.log("Clerk geladen.");
+
+        clearTimeout(timeoutTimer); // Timer stoppen, alles is gelukt
+        updateAuthUI();
+
+    } catch (error) {
+        console.error("FATALE FOUT BIJ STARTEN:", error);
+        els.loadingText.textContent = "Er ging iets mis: " + error.message;
+        els.errorFallback.classList.remove('hidden');
+    }
+}
+
+// Forceer laden knop (voor nood)
+els.btnForceLoad.addEventListener('click', () => {
+    els.loadingScreen.classList.add('fade-out');
+    console.log("Laden geforceerd door gebruiker.");
+});
+
+
+// --- AUTHENTICATIE UI ---
+
+function updateAuthUI() {
+    // Verwijder laadscherm
+    els.loadingScreen.classList.add('fade-out');
+
+    if (clerk.user) {
+        user = clerk.user;
+        console.log("Gebruiker ingelogd:", user.firstName);
+        
+        els.authContainer.innerHTML = `
+            <div style="display:flex; align-items:center; gap:10px;">
+                <span>Hoi, ${user.firstName || 'Student'}</span>
+                <div id="user-button"></div>
+            </div>
+        `;
+        clerk.mountUserButton(document.getElementById('user-button'));
+        
+        showView('view-dashboard');
+        loadUserLists();
+    } else {
+        console.log("Geen gebruiker ingelogd.");
+        user = null;
+        els.authContainer.innerHTML = `<button id="btn-login-nav" class="btn btn-primary">Inloggen</button>`;
+        
+        // Listeners opnieuw koppelen omdat innerHTML is overschreven
+        document.getElementById('btn-login-nav').addEventListener('click', () => clerk.openSignIn());
+        const heroBtn = document.getElementById('btn-login-hero');
+        if(heroBtn) heroBtn.onclick = () => clerk.openSignUp(); // Gebruik onclick voor zekerheid
+        
+        showView('view-landing');
+    }
+}
+
+
+// --- VIEW NAVIGATIE ---
 
 function showView(viewId) {
     els.views.forEach(v => v.classList.remove('active', 'hidden'));
     document.getElementById(viewId).classList.add('active');
 }
 
-function showLoading(show) {
-    if(show) els.loadingScreen.classList.remove('fade-out');
-    else els.loadingScreen.classList.add('fade-out');
-}
 
-// --- AUTHENTICATIE LOGICA ---
-
-async function updateAuthUI() {
-    if (clerk.user) {
-        state.user = clerk.user;
-        // User is ingelogd
-        els.authContainer.innerHTML = `
-            <div style="display:flex; align-items:center; gap:10px;">
-                <span>Hoi, ${clerk.user.firstName || 'Student'}</span>
-                <div id="user-button"></div>
-            </div>
-        `;
-        clerk.mountUserButton(document.getElementById('user-button'));
-        
-        // Start app flow
-        showView('view-dashboard');
-        loadUserLists();
-    } else {
-        // User is niet ingelogd
-        state.user = null;
-        els.authContainer.innerHTML = `<button id="btn-login-nav" class="btn btn-primary">Inloggen</button>`;
-        document.getElementById('btn-login-nav').addEventListener('click', () => clerk.openSignIn());
-        
-        // Hero button listener
-        const heroBtn = document.getElementById('btn-login-hero');
-        if(heroBtn) heroBtn.addEventListener('click', () => clerk.openSignUp());
-        
-        showView('view-landing');
-    }
-    showLoading(false);
-}
-
-// --- DATABASE LOGICA (FIRESTORE) ---
+// --- FIRESTORE LOGICA ---
 
 async function loadUserLists() {
-    if(!state.user) return;
+    if(!user) return;
+    console.log("Lijsten ophalen voor:", user.id);
     
     els.listsContainer.innerHTML = '<div class="spinner"></div>';
-    
+
     try {
-        const q = query(
-            collection(db, "lists"), 
-            where("userId", "==", state.user.id)
-        );
+        const q = query(collection(db, "lists"), where("userId", "==", user.id));
         const querySnapshot = await getDocs(q);
         
-        els.listsContainer.innerHTML = ''; // Clear spinner
-        
+        els.listsContainer.innerHTML = ''; 
+
         if(querySnapshot.empty) {
-            els.listsContainer.innerHTML = `
-                <div class="empty-state" style="grid-column: 1/-1; text-align:center;">
-                    <p>Je hebt nog geen lijsten.</p>
-                    <p>Klik op "Nieuwe Lijst" om te beginnen!</p>
-                </div>`;
+            els.listsContainer.innerHTML = `<div class="empty-state" style="grid-column:1/-1;text-align:center;"><p>Geen lijsten gevonden.</p></div>`;
             return;
         }
 
-        querySnapshot.forEach((doc) => {
-            const list = doc.data();
-            const listEl = document.createElement('div');
-            listEl.className = 'list-card';
-            listEl.innerHTML = `
+        querySnapshot.forEach((docSnap) => {
+            const list = docSnap.data();
+            const div = document.createElement('div');
+            div.className = 'list-card';
+            div.innerHTML = `
                 <h3>${list.name}</h3>
                 <div class="list-meta">${list.words.length} woorden</div>
                 <div class="list-actions">
-                    <button class="btn btn-primary btn-sm btn-practice" data-id="${doc.id}">
-                        <i class="fa-solid fa-play"></i> Oefenen
-                    </button>
-                    <button class="btn btn-outline btn-sm btn-delete" data-id="${doc.id}">
-                        <i class="fa-solid fa-trash"></i>
-                    </button>
+                    <button class="btn btn-primary btn-sm btn-practice">Oefenen</button>
+                    <button class="btn btn-outline btn-sm btn-delete"><i class="fa-solid fa-trash"></i></button>
                 </div>
             `;
+            // Listeners direct op de elementen (veiliger)
+            div.querySelector('.btn-practice').onclick = () => startPracticeSelection(docSnap.id, list);
+            div.querySelector('.btn-delete').onclick = () => deleteList(docSnap.id);
             
-            // Event Listeners voor de knoppen in de kaart
-            listEl.querySelector('.btn-practice').addEventListener('click', () => startPracticeSelection(doc.id, list));
-            listEl.querySelector('.btn-delete').addEventListener('click', () => deleteList(doc.id));
-            
-            els.listsContainer.appendChild(listEl);
+            els.listsContainer.appendChild(div);
         });
 
     } catch (e) {
-        console.error("Error loading lists: ", e);
-        els.listsContainer.innerHTML = '<p class="text-danger">Er ging iets mis bij het laden.</p>';
+        console.error("Fout bij laden lijsten:", e);
+        els.listsContainer.innerHTML = `<p style="color:red">Fout bij laden.</p>`;
     }
 }
 
-async function saveList(name, textContent) {
-    if(!state.user) return;
+async function saveList(name, content) {
+    if(!user) return;
     
-    // Parse tekst naar objecten
-    const lines = textContent.split('\n');
+    const lines = content.split('\n');
     const words = [];
-    
     lines.forEach(line => {
-        if(line.includes('|')) {
-            const parts = line.split('|');
-            if(parts[0].trim() && parts[1].trim()) {
-                words.push({
-                    q: parts[0].trim(), // Vraag
-                    a: parts[1].trim()  // Antwoord
-                });
-            }
+        const parts = line.split('|');
+        if(parts.length >= 2 && parts[0].trim() && parts[1].trim()) {
+            words.push({ q: parts[0].trim(), a: parts[1].trim() });
         }
     });
 
-    if(words.length === 0) {
-        alert("Geen geldige woorden gevonden. Gebruik het formaat: woord|betekenis");
-        return;
-    }
+    if(words.length === 0) return alert("Geen geldige woorden (gebruik | teken)");
 
     try {
         await addDoc(collection(db, "lists"), {
-            userId: state.user.id,
+            userId: user.id,
             name: name || "Naamloze lijst",
             words: words,
             createdAt: serverTimestamp()
         });
         
-        // Reset en ga terug naar dashboard
         els.inputTitle.value = '';
         els.inputContent.value = '';
+        els.wordCountBadge.textContent = '0 woorden herkend';
+        
         showView('view-dashboard');
         loadUserLists();
-        
     } catch (e) {
-        console.error("Error adding document: ", e);
-        alert("Kon lijst niet opslaan.");
+        console.error("Save error:", e);
+        alert("Opslaan mislukt: " + e.message);
     }
 }
 
-async function deleteList(docId) {
-    if(confirm("Weet je zeker dat je deze lijst wilt verwijderen?")) {
-        await deleteDoc(doc(db, "lists", docId));
+async function deleteList(id) {
+    if(confirm("Lijst verwijderen?")) {
+        await deleteDoc(doc(db, "lists", id));
         loadUserLists();
     }
 }
 
-// --- PARSING & EDITOR UI ---
 
-els.inputContent.addEventListener('input', (e) => {
-    const text = e.target.value;
-    const count = (text.match(/\|/g) || []).length;
-    els.wordCountBadge.textContent = `${count} paren herkend`;
-});
+// --- UI EVENT LISTENERS ---
 
+// Navigatie
 els.btnCreate.addEventListener('click', () => showView('view-editor'));
 els.btnBackDash.addEventListener('click', () => showView('view-dashboard'));
 els.btnBackDash2.addEventListener('click', () => showView('view-dashboard'));
+els.quitButtons.forEach(b => b.addEventListener('click', () => showView('view-dashboard')));
+
+// Editor
+els.inputContent.addEventListener('input', (e) => {
+    const count = (e.target.value.match(/\|/g) || []).length;
+    els.wordCountBadge.textContent = `${count} paren herkend`;
+});
 els.btnSave.addEventListener('click', () => {
-    const title = els.inputTitle.value;
-    const content = els.inputContent.value;
-    if(!content) return alert("Vul wat woorden in!");
-    saveList(title, content);
+    saveList(els.inputTitle.value, els.inputContent.value);
 });
 
-// --- OEFEN MODUS LOGICA ---
-
+// Practice Modes Starten
 function startPracticeSelection(id, listData) {
     state.currentList = listData;
     els.practiceTitle.textContent = `Oefenen: ${listData.name}`;
     showView('view-practice-select');
 }
 
-// Setup Practice Start Listeners
-els.modeFlash.addEventListener('click', () => initFlashcards());
-els.modeInput.addEventListener('click', () => initInputGame());
-
-// Algemene stop knop
-els.quitButtons.forEach(btn => {
-    btn.addEventListener('click', () => {
-        showView('view-dashboard');
-    });
-});
-
-// 1. FLASHCARDS
-function initFlashcards() {
-    state.practiceData.words = shuffleArray([...state.currentList.words]);
-    state.practiceData.currentIndex = 0;
+els.modeFlash.addEventListener('click', () => {
+    setupPractice();
     showView('view-flashcards');
     renderFlashcard();
+});
+
+els.modeInput.addEventListener('click', () => {
+    setupPractice();
+    els.ipResults.classList.add('hidden');
+    els.ipFeedback.classList.add('hidden');
+    state.practiceData.score = 0;
+    showView('view-input-practice');
+    renderInputQuestion();
+});
+
+function setupPractice() {
+    // Shuffle
+    const arr = [...state.currentList.words];
+    for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    state.practiceData.words = arr;
+    state.practiceData.currentIndex = 0;
 }
+
+
+// --- FLASHCARDS LOGICA ---
 
 function renderFlashcard() {
     const word = state.practiceData.words[state.practiceData.currentIndex];
-    const total = state.practiceData.words.length;
-    
-    // Reset flip status
     els.card.classList.remove('flipped');
     
-    // Update text na korte delay zodat je de overgang niet ziet tijdens flip reset
+    // Korte delay voor smooth effect
     setTimeout(() => {
         els.fcQuestion.textContent = word.q;
         els.fcAnswer.textContent = word.a;
-        els.fcProgress.textContent = `${state.practiceData.currentIndex + 1} / ${total}`;
+        els.fcProgress.textContent = `${state.practiceData.currentIndex + 1} / ${state.practiceData.words.length}`;
     }, 200);
 }
 
-els.card.addEventListener('click', () => {
-    els.card.classList.toggle('flipped');
-});
-
+els.card.addEventListener('click', () => els.card.classList.toggle('flipped'));
 els.btnFcNext.addEventListener('click', () => {
     if(state.practiceData.currentIndex < state.practiceData.words.length - 1) {
         state.practiceData.currentIndex++;
         renderFlashcard();
     } else {
-        alert("Einde van de stapel! Goed gedaan.");
+        alert("Klaar!");
         showView('view-dashboard');
     }
 });
-
 els.btnFcPrev.addEventListener('click', () => {
     if(state.practiceData.currentIndex > 0) {
         state.practiceData.currentIndex--;
@@ -332,20 +339,8 @@ els.btnFcPrev.addEventListener('click', () => {
     }
 });
 
-// 2. INPUT GAME
-function initInputGame() {
-    state.practiceData.words = shuffleArray([...state.currentList.words]);
-    state.practiceData.currentIndex = 0;
-    state.practiceData.score = 0;
-    
-    // UI Reset
-    els.ipResults.classList.add('hidden');
-    els.ipInput.value = '';
-    els.ipFeedback.classList.add('hidden');
-    
-    showView('view-input-practice');
-    renderInputQuestion();
-}
+
+// --- INPUT GAME LOGICA ---
 
 function renderInputQuestion() {
     const word = state.practiceData.words[state.practiceData.currentIndex];
@@ -354,73 +349,48 @@ function renderInputQuestion() {
     els.ipInput.focus();
     els.ipScore.textContent = `Score: ${state.practiceData.score}`;
     
-    // Progress bar update
     const pct = (state.practiceData.currentIndex / state.practiceData.words.length) * 100;
     els.ipProgress.style.width = `${pct}%`;
 }
 
-function checkAnswer() {
+function checkInput() {
     const word = state.practiceData.words[state.practiceData.currentIndex];
-    const input = els.ipInput.value.trim().toLowerCase();
-    const correct = word.a.trim().toLowerCase();
+    const val = els.ipInput.value.trim().toLowerCase();
+    const ans = word.a.trim().toLowerCase();
     
     els.ipFeedback.classList.remove('hidden', 'correct', 'wrong');
     
-    if (input === correct) {
-        // GOED
+    if(val === ans) {
         state.practiceData.score++;
         els.ipFeedback.textContent = "Correct! 🎉";
         els.ipFeedback.classList.add('correct');
-        
         setTimeout(() => {
             els.ipFeedback.classList.add('hidden');
-            nextInputQuestion();
+            nextInput();
         }, 1000);
     } else {
-        // FOUT
         els.ipFeedback.textContent = `Fout! Het was: ${word.a}`;
         els.ipFeedback.classList.add('wrong');
-        
-        // Langer wachten bij fout zodat ze het antwoord kunnen lezen
         setTimeout(() => {
             els.ipFeedback.classList.add('hidden');
-            nextInputQuestion();
-        }, 2000);
+            nextInput();
+        }, 2500);
     }
 }
 
-function nextInputQuestion() {
+function nextInput() {
     state.practiceData.currentIndex++;
     if(state.practiceData.currentIndex < state.practiceData.words.length) {
         renderInputQuestion();
     } else {
-        finishInputGame();
+        els.ipProgress.style.width = '100%';
+        els.ipResults.classList.remove('hidden');
+        els.ipFinalScore.textContent = `${state.practiceData.score} / ${state.practiceData.words.length}`;
     }
 }
 
-function finishInputGame() {
-    els.ipProgress.style.width = '100%';
-    els.ipResults.classList.remove('hidden');
-    els.ipFinalScore.textContent = `${state.practiceData.score} / ${state.practiceData.words.length}`;
-}
+els.btnIpCheck.addEventListener('click', checkInput);
+els.ipInput.addEventListener('keypress', (e) => { if(e.key==='Enter') checkInput(); });
 
-els.btnIpCheck.addEventListener('click', checkAnswer);
-els.ipInput.addEventListener('keypress', (e) => {
-    if(e.key === 'Enter') checkAnswer();
-});
-
-
-// Utility: Shuffle Array (Fisher-Yates)
-function shuffleArray(array) {
-    for (let i = array.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [array[i], array[j]] = [array[j], array[i]];
-    }
-    return array;
-}
-
-// Start App
-updateAuthUI();
-
-// Event Listener voor Clerk Auth wijzigingen (als sessie verloopt etc)
-// (Clerk JS handelt dit vaak intern af, maar updateAuthUI aanroepen bij init is veilig)
+// --- START APP ---
+initApp();
