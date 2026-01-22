@@ -1,0 +1,24 @@
+{
+  "name": "woorden-leren",
+  "version": "1.0.0",
+  "description": "Een professionele website om woorden te leren met Firebase en Clerk",
+  "main": "app.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "deploy": "npm run build && gh-pages -d dist"
+  },
+  "dependencies": {
+    "firebase": "^9.22.0",
+    "@clerk/clerk-js": "^4.22.1",
+    "chart.js": "^4.3.0"
+  },
+  "devDependencies": {
+    "vite": "^4.3.9",
+    "gh-pages": "^5.0.0"
+  },
+  "keywords": ["woorden", "leren", "flashcards", "taal", "firebase", "clerk"],
+  "author": "Woorden Leren Team",
+  "license": "MIT"
+}
