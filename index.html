@@ -11,12 +11,25 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <script
+      async
+      crossorigin="anonymous"
+      data-clerk-publishable-key="pk_test_bm9ibGUtZmVsaW5lLTgxLmNsZXJrLmFjY291bnRzLmRldiQ"
+      src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"
+      type="text/javascript"
+    ></script>
 </head>
 <body>
 
     <div id="loading-screen" class="loading-screen">
         <div class="spinner"></div>
-        <p>Applicatie laden...</p>
+        <p id="loading-text">Applicatie verbinden...</p>
+        <div id="error-fallback" class="hidden" style="margin-top: 20px; text-align: center;">
+            <p style="color: #ef4444; margin-bottom: 10px;">Het duurt langer dan verwacht.</p>
+            <button id="btn-force-load" class="btn btn-outline">Probeer toch te openen</button>
+            <p style="font-size: 0.8rem; margin-top: 10px; color: #666;">Tip: Open de console (F12) voor details.</p>
+        </div>
     </div>
 
     <nav class="navbar">
