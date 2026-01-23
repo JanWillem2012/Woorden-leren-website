@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WordMaster - Leer Woorden Efficiënt</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js" defer></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Clerk Auth Container -->
+    <div id="clerk-auth-container"></div>
+
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <i class="fas fa-book-open"></i>
+                <h1>WordMaster</h1>
+            </div>
+            <div class="nav-links" id="nav-links">
+                <a href="#dashboard" class="nav-link active" data-page="dashboard">
+                    <i class="fas fa-home"></i> Dashboard
+                </a>
+                <a href="#wordlists" class="nav-link" data-page="wordlists">
+                    <i class="fas fa-list"></i> Woordenlijsten
+                </a>
+                <a href="#practice" class="nav-link" data-page="practice">
+                    <i class="fas fa-brain"></i> Oefenen
+                </a>
+                <a href="#ocr-upload" class="nav-link" data-page="ocr-upload">
+                    <i class="fas fa-camera"></i> Scan Woordenlijst
+                </a>
+                <a href="#stats" class="nav-link" data-page="stats">
+                    <i class="fas fa-chart-line"></i> Statistieken
+                </a>
+            </div>
+            <div class="nav-auth">
+                <div id="user-button"></div>
+            </div>
+            <button class="mobile-menu-btn" id="mobile-menu-btn">
+                <i class="fas fa-bars"></i>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content" id="main-content">
+        <!-- Dashboard Page -->
+        <section id="dashboard-page" class="page active">
+            <div class="dashboard-header">
+                <h2><i class="fas fa-tachometer-alt"></i> Dashboard</h2>
+                <p class="welcome-message" id="welcome-message">Welkom! Selecteer een optie om te beginnen.</p>
+            </div>
+            
+            <div class="dashboard-grid">
+                <div class="dashboard-card primary">
+                    <div class="card-icon">
+                        <i class="fas fa-plus-circle"></i>
+                    </div>
+                    <h3>Nieuwe Woordenlijst</h3>
+                    <p>Maak een nieuwe woordenlijst aan of upload een bestaande</p>
+                    <button class="card-btn" data-action="create-wordlist">
+                        <i class="fas fa-plus"></i> Aanmaken
+                    </button>
+                </div>
+                
+                <div class="dashboard-card success">
+                    <div class="card-icon">
+                        <i class="fas fa-brain"></i>
+                    </div>
+                    <h3>Oefen Modus</h3>
+                    <p>Oefen met woorden invoeren of gebruik flashcards</p>
+                    <button class="card-btn" data-action="start-practice">
+                        <i class="fas fa-play"></i> Start Oefenen
+                    </button>
+                </div>
+                
+                <div class="dashboard-card warning">
+                    <div class="card-icon">
+                        <i class="fas fa-camera"></i>
+                    </div>
+                    <h3>Scan Woordenlijst</h3>
+                    <p>Maak een foto van een woordenlijst en zet deze om</p>
+                    <button class="card-btn" data-action="scan-wordlist">
+                        <i class="fas fa-camera"></i> Scan Nu
+                    </button>
+                </div>
+                
+                <div class="dashboard-card info">
+                    <div class="card-icon">
+                        <i class="fas fa-chart-bar"></i>
+                    </div>
+                    <h3>Je Voortgang</h3>
+                    <div class="progress-stats">
+                        <div class="stat-item">
+                            <span class="stat-label">Woorden Geleerd</span>
+                            <span class="stat-value" id="words-learned">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Lijsten</span>
+                            <span class="stat-value" id="wordlist-count">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Succes Ratio</span>
+                            <span class="stat-value" id="success-ratio">0%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="recent-activity">
+                <h3><i class="fas fa-history"></i> Recente Activiteit</h3>
+                <div class="activity-list" id="activity-list">
+                    <div class="activity-item">
+                        <i class="fas fa-info-circle"></i>
+                        <p>Nog geen activiteit. Begin met het aanmaken van een woordenlijst!</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Wordlists Page -->
+        <section id="wordlists-page" class="page">
+            <div class="page-header">
+                <h2><i class="fas fa-list"></i> Woordenlijsten Beheren</h2>
+                <button class="btn-primary" id="create-wordlist-btn">
+                    <i class="fas fa-plus"></i> Nieuwe Lijst
+                </button>
+            </div>
+            
+            <div class="wordlists-container">
+                <div class="wordlist-actions">
+                    <div class="search-box">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="search-wordlists" placeholder="Zoek woordenlijsten...">
+                    </div>
+                    <div class="filter-options">
+                        <select id="filter-sort">
+                            <option value="newest">Nieuwste eerst</option>
+                            <option value="oldest">Oudste eerst</option>
+                            <option value="name">Naam A-Z</option>
+                            <option value="size">Grootte</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="wordlists-grid" id="wordlists-grid">
+                    <!-- Wordlists will be loaded here -->
+                </div>
+                
+                <!-- Create/Edit Wordlist Modal -->
+                <div class="modal" id="wordlist-modal">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h3><i class="fas fa-list"></i> <span id="modal-title">Nieuwe Woordenlijst</span></h3>
+                            <button class="close-modal" id="close-modal">&times;</button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="form-group">
+                                <label for="wordlist-name">
+                                    <i class="fas fa-heading"></i> Lijstnaam
+                                </label>
+                                <input type="text" id="wordlist-name" placeholder="Bijv. Engelse Werkwoorden">
+                            </div>
+                            <div class="form-group">
+                                <label for="wordlist-description">
+                                    <i class="fas fa-align-left"></i> Beschrijving
+                                </label>
+                                <textarea id="wordlist-description" rows="3" placeholder="Beschrijving van de woordenlijst..."></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label for="wordlist-language">
+                                    <i class="fas fa-language"></i> Taal
+                                </label>
+                                <select id="wordlist-language">
+                                    <option value="en">Engels</option>
+                                    <option value="nl">Nederlands</option>
+                                    <option value="de">Duits</option>
+                                    <option value="fr">Frans</option>
+                                    <option value="es">Spaans</option>
+                                    <option value="other">Anders</option>
+                                </select>
+                            </div>
+                            
+                            <div class="words-editor">
+                                <div class="editor-header">
+                                    <h4><i class="fas fa-words"></i> Woorden</h4>
+                                    <div class="editor-actions">
+                                        <button class="btn-small" id="add-word-btn">
+                                            <i class="fas fa-plus"></i> Woord Toevoegen
+                                        </button>
+                                        <button class="btn-small" id="import-words-btn">
+                                            <i class="fas fa-file-import"></i> Importeren
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <div class="words-table-container">
+                                    <table class="words-table">
+                                        <thead>
+                                            <tr>
+                                                <th>#</th>
+                                                <th>Vraag/Woord</th>
+                                                <th>Antwoord/Betekenis</th>
+                                                <th>Acties</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="words-table-body">
+                                            <tr class="empty-row">
+                                                <td colspan="4">
+                                                    <i class="fas fa-info-circle"></i>
+                                                    Nog geen woorden toegevoegd. Klik op "Woord Toevoegen"
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                
+                                <div class="import-section" id="import-section">
+                                    <h5><i class="fas fa-file-import"></i> Importeer Woorden</h5>
+                                    <div class="import-format">
+                                        <p><strong>Formaat:</strong> vraag|antwoord (één per regel)</p>
+                                        <textarea id="import-text" rows="5" placeholder="bijvoorbeeld:
+apple|appel
+dog|hond
+house|huis"></textarea>
+                                    </div>
+                                    <button class="btn-primary" id="process-import-btn">
+                                        <i class="fas fa-check"></i> Importeer
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button class="btn-secondary" id="cancel-wordlist">
+                                <i class="fas fa-times"></i> Annuleren
+                            </button>
+                            <button class="btn-primary" id="save-wordlist">
+                                <i class="fas fa-save"></i> Opslaan
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Practice Page -->
+        <section id="practice-page" class="page">
+            <div class="practice-container">
+                <div class="practice-header">
+                    <h2><i class="fas fa-brain"></i> Oefen Modus</h2>
+                    <div class="practice-mode-selector">
+                        <button class="mode-btn active" data-mode="typing">
+                            <i class="fas fa-keyboard"></i> Woorden Invoeren
+                        </button>
+                        <button class="mode-btn" data-mode="flashcards">
+                            <i class="fas fa-layer-group"></i> Flashcards
+                        </button>
+                        <button class="mode-btn" data-mode="multiple-choice">
+                            <i class="fas fa-list-check"></i> Meerkeuze
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="practice-setup">
+                    <div class="setup-card">
+                        <h4><i class="fas fa-cog"></i> Oefeninstellingen</h4>
+                        
+                        <div class="form-group">
+                            <label for="select-wordlist">
+                                <i class="fas fa-list"></i> Selecteer Woordenlijst
+                            </label>
+                            <select id="select-wordlist" class="practice-select">
+                                <option value="">-- Kies een woordenlijst --</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="practice-direction">
+                                <i class="fas fa-exchange-alt"></i> Richting
+                            </label>
+                            <select id="practice-direction" class="practice-select">
+                                <option value="forward">Vraag → Antwoord</option>
+                                <option value="reverse">Antwoord → Vraag</option>
+                                <option value="mixed">Gemengd</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="practice-limit">
+                                <i class="fas fa-hashtag"></i> Aantal Woorden
+                            </label>
+                            <input type="number" id="practice-limit" min="1" max="100" value="10">
+                        </div>
+                        
+                        <div class="practice-stats">
+                            <div class="stat-box">
+                                <span class="stat-label">Totaal Woorden</span>
+                                <span class="stat-value" id="total-words">0</span>
+                            </div>
+                            <div class="stat-box">
+                                <span class="stat-label">Geleerd</span>
+                                <span class="stat-value" id="learned-words">0</span>
+                            </div>
+                            <div class="stat-box">
+                                <span class="stat-label">Nog te Leren</span>
+                                <span class="stat-value" id="remaining-words">0</span>
+                            </div>
+                        </div>
+                        
+                        <button class="btn-primary btn-start-practice" id="start-practice-btn">
+                            <i class="fas fa-play"></i> Start Oefenen
+                        </button>
+                    </div>
+                    
+                    <div class="practice-area" id="practice-area">
+                        <div class="practice-welcome">
+                            <i class="fas fa-graduation-cap"></i>
+                            <h3>Klaar om te Leren?</h3>
+                            <p>Selecteer een woordenlijst en klik op "Start Oefenen" om te beginnen.</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Typing Practice Interface -->
+                <div class="typing-practice hidden" id="typing-practice">
+                    <div class="typing-header">
+                        <div class="progress-info">
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="typing-progress"></div>
+                            </div>
+                            <span class="progress-text" id="progress-text">0/10</span>
+                        </div>
+                        <div class="score-display">
+                            <span>Score: <strong id="typing-score">0</strong></span>
+                            <span>Tijd: <strong id="typing-time">00:00</strong></span>
+                        </div>
+                    </div>
+                    
+                    <div class="typing-card">
+                        <div class="card-question" id="typing-question">
+                            Laad vraag...
+                        </div>
+                        <div class="card-instruction">
+                            Typ het antwoord in het onderstaande veld:
+                        </div>
+                        <div class="typing-input-container">
+                            <input type="text" id="typing-answer" placeholder="Typ hier je antwoord..." autocomplete="off">
+                            <button class="btn-check" id="check-answer">
+                                <i class="fas fa-check"></i> Controleren
+                            </button>
+                        </div>
+                        <div class="feedback" id="typing-feedback"></div>
+                        <div class="typing-actions">
+                            <button class="btn-secondary" id="skip-word">
+                                <i class="fas fa-forward"></i> Overslaan
+                            </button>
+                            <button class="btn-primary" id="next-word" disabled>
+                                <i class="fas fa-arrow-right"></i> Volgende
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Flashcards Interface -->
+                <div class="flashcards-practice hidden" id="flashcards-practice">
+                    <div class="flashcards-header">
+                        <div class="flashcards-progress">
+                            <span id="flashcard-progress">Kaart 1 van 10</span>
+                        </div>
+                        <div class="flashcards-controls">
+                            <button class="btn-small" id="flip-card">
+                                <i class="fas fa-sync-alt"></i> Draai Om
+                            </button>
+                            <button class="btn-small" id="shuffle-cards">
+                                <i class="fas fa-random"></i> Shuffle
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="flashcard-container">
+                        <div class="flashcard" id="flashcard">
+                            <div class="flashcard-front">
+                                <div class="flashcard-content" id="flashcard-front">
+                                    <h3>Vraag</h3>
+                                    <p>Laad vraag...</p>
+                                </div>
+                                <div class="flashcard-hint">
+                                    <i class="fas fa-hand-point-up"></i> Klik om te draaien
+                                </div>
+                            </div>
+                            <div class="flashcard-back">
+                                <div class="flashcard-content" id="flashcard-back">
+                                    <h3>Antwoord</h3>
+                                    <p>Laad antwoord...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="flashcards-rating">
+                        <p class="rating-question">Hoe goed kende je dit woord?</p>
+                        <div class="rating-buttons">
+                            <button class="rating-btn poor" data-rating="1">
+                                <i class="fas fa-frown"></i> Slecht
+                            </button>
+                            <button class="rating-btn fair" data-rating="3">
+                                <i class="fas fa-meh"></i> Redelijk
+                            </button>
+                            <button class="rating-btn good" data-rating="5">
+                                <i class="fas fa-smile"></i> Goed
+                            </button>
+                            <button class="rating-btn excellent" data-rating="7">
+                                <i class="fas fa-star"></i> Uitstekend
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="flashcards-navigation">
+                        <button class="btn-secondary" id="prev-card">
+                            <i class="fas fa-arrow-left"></i> Vorige
+                        </button>
+                        <button class="btn-primary" id="next-card">
+                            Volgende <i class="fas fa-arrow-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- OCR Upload Page -->
+        <section id="ocr-upload-page" class="page">
+            <div class="ocr-container">
+                <div class="ocr-header">
+                    <h2><i class="fas fa-camera"></i> Woordenlijst Scannen</h2>
+                    <p>Maak een foto van een woordenlijst of upload een afbeelding en zet deze om naar vraag|antwoord formaat.</p>
+                </div>
+                
+                <div class="ocr-process">
+                    <div class="ocr-step active" id="step-1">
+                        <div class="step-number">1</div>
+                        <div class="step-content">
+                            <h4><i class="fas fa-upload"></i> Upload Afbeelding</h4>
+                            <p>Selecteer een afbeelding van je woordenlijst (JPG, PNG of PDF)</p>
+                            
+                            <div class="upload-area" id="upload-area">
+                                <div class="upload-icon">
+                                    <i class="fas fa-cloud-upload-alt"></i>
+                                </div>
+                                <h5>Sleep je bestand hierheen of klik om te uploaden</h5>
+                                <p>Ondersteunde formaten: JPG, PNG, PDF</p>
+                                <input type="file" id="image-upload" accept="image/*,.pdf" hidden>
+                                <button class="btn-primary" id="select-image-btn">
+                                    <i class="fas fa-folder-open"></i> Selecteer Bestand
+                                </button>
+                            </div>
+                            
+                            <div class="camera-section">
+                                <h5><i class="fas fa-camera"></i> Of gebruik je camera</h5>
+                                <button class="btn-secondary" id="start-camera-btn">
+                                    <i class="fas fa-video"></i> Start Camera
+                                </button>
+                                
+                                <div class="camera-preview hidden" id="camera-preview">
+                                    <video id="camera-stream" autoplay playsinline></video>
+                                    <div class="camera-controls">
+                                        <button class="btn-small" id="capture-btn">
+                                            <i class="fas fa-camera"></i> Maak Foto
+                                        </button>
+                                        <button class="btn-small btn-danger" id="stop-camera-btn">
+                                            <i class="fas fa-stop"></i> Stop
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <canvas id="photo-canvas" hidden></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="ocr-step" id="step-2">
+                        <div class="step-number">2</div>
+                        <div class="step-content">
+                            <h4><i class="fas fa-cogs"></i> OCR Verwerking</h4>
+                            <p>De afbeelding wordt nu geanalyseerd en tekst wordt herkend...</p>
+                            
+                            <div class="processing-indicator">
+                                <div class="spinner"></div>
+                                <p id="processing-status">Voorbereiden voor OCR...</p>
+                            </div>
+                            
+                            <div class="progress-bar ocr-progress">
+                                <div class="progress-fill" id="ocr-progress"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="ocr-step" id="step-3">
+                        <div class="step-number">3</div>
+                        <div class="step-content">
+                            <h4><i class="fas fa-check-circle"></i> Resultaat & Bewerken</h4>
+                            <p>Bekijk en bewerk de herkende woorden voordat je ze opslaat.</p>
+                            
+                            <div class="ocr-result-container">
+                                <div class="original-preview">
+                                    <h5><i class="fas fa-image"></i> Originele Afbeelding</h5>
+                                    <img id="original-image" src="" alt="Geüploade afbeelding">
+                                </div>
+                                
+                                <div class="ocr-text-preview">
+                                    <h5><i class="fas fa-text-height"></i> Herkende Tekst</h5>
+                                    <textarea id="ocr-result-text" rows="10" placeholder="Hier verschijnt de herkende tekst..."></textarea>
+                                    
+                                    <div class="ocr-actions">
+                                        <button class="btn-small" id="auto-format-btn">
+                                            <i class="fas fa-magic"></i> Auto-Format
+                                        </button>
+                                        <button class="btn-small" id="clear-ocr-btn">
+                                            <i class="fas fa-trash"></i> Wissen
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="parsed-words">
+                                <h5><i class="fas fa-table"></i> Geparse Woorden</h5>
+                                <div class="parsed-table-container">
+                                    <table class="parsed-table">
+                                        <thead>
+                                            <tr>
+                                                <th>#</th>
+                                                <th>Vraag/Woord</th>
+                                                <th>Antwoord/Betekenis</th>
+                                                <th>Acties</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="parsed-words-body">
+                                            <!-- Parsed words will appear here -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="ocr-navigation">
+                    <button class="btn-secondary" id="prev-step" disabled>
+                        <i class="fas fa-arrow-left"></i> Vorige Stap
+                    </button>
+                    <button class="btn-primary" id="next-step">
+                        Volgende Stap <i class="fas fa-arrow-right"></i>
+                    </button>
+                    <button class="btn-success hidden" id="save-ocr-result">
+                        <i class="fas fa-save"></i> Opslaan als Woordenlijst
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Statistics Page -->
+        <section id="stats-page" class="page">
+            <div class="stats-container">
+                <div class="stats-header">
+                    <h2><i class="fas fa-chart-line"></i> Jouw Statistieken</h2>
+                    <div class="time-range-selector">
+                        <button class="time-btn active" data-range="week">Week</button>
+                        <button class="time-btn" data-range="month">Maand</button>
+                        <button class="time-btn" data-range="year">Jaar</button>
+                        <button class="time-btn" data-range="all">Alles</button>
+                    </div>
+                </div>
+                
+                <div class="stats-overview">
+                    <div class="stat-card">
+                        <div class="stat-icon primary">
+                            <i class="fas fa-book"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3 id="total-practice-sessions">0</h3>
+                            <p>Oefensessies</p>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon success">
+                            <i class="fas fa-check-circle"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3 id="total-correct">0</h3>
+                            <p>Correcte Antwoorden</p>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon warning">
+                            <i class="fas fa-clock"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3 id="total-time">0m</h3>
+                            <p>Totaal Oefentijd</p>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon danger">
+                            <i class="fas fa-trophy"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3 id="mastery-level">Beginner</h3>
+                            <p>Beheersingsniveau</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="charts-container">
+                    <div class="chart-card">
+                        <h4><i class="fas fa-chart-bar"></i> Activiteit Overzicht</h4>
+                        <canvas id="activity-chart"></canvas>
+                    </div>
+                    
+                    <div class="chart-card">
+                        <h4><i class="fas fa-chart-pie"></i> Woordenlijst Verdeling</h4>
+                        <canvas id="wordlist-chart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="detailed-stats">
+                    <div class="recent-sessions">
+                        <h4><i class="fas fa-history"></i> Recente Sessies</h4>
+                        <table class="sessions-table">
+                            <thead>
+                                <tr>
+                                    <th>Datum</th>
+                                    <th>Lijst</th>
+                                    <th>Modus</th>
+                                    <th>Score</th>
+                                    <th>Tijd</th>
+                                </tr>
+                            </thead>
+                            <tbody id="sessions-table-body">
+                                <tr>
+                                    <td colspan="5">Nog geen sessies geregistreerd</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="top-wordlists">
+                        <h4><i class="fas fa-star"></i> Meest Geoefende Lijsten</h4>
+                        <div class="top-list" id="top-wordlists">
+                            <!-- Top wordlists will appear here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Loading Overlay -->
+        <div class="loading-overlay hidden" id="loading-overlay">
+            <div class="loading-spinner"></div>
+            <p id="loading-text">Laden...</p>
+        </div>
+
+        <!-- Toast Notifications -->
+        <div class="toast-container" id="toast-container"></div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-content">
+            <div class="footer-section">
+                <h4><i class="fas fa-book-open"></i> WordMaster</h4>
+                <p>De ultieme tool voor efficiënt woordjes leren. Maak, oefen en beheer je woordenlijsten.</p>
+            </div>
+            <div class="footer-section">
+                <h4>Functies</h4>
+                <ul>
+                    <li>Woordenlijst Beheer</li>
+                    <li>Typing Oefening</li>
+                    <li>Flashcards</li>
+                    <li>OCR Scanning</li>
+                    <li>Voortgang Tracking</li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h4>Technologieën</h4>
+                <div class="tech-logos">
+                    <i class="fab fa-js" title="JavaScript"></i>
+                    <i class="fab fa-firebase" title="Firebase"></i>
+                    <i class="fas fa-camera" title="OCR"></i>
+                    <i class="fab fa-github" title="GitHub"></i>
+                </div>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2024 WordMaster. Alle rechten voorbehouden.</p>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script type="module" src="firebase-config.js"></script>
+    <script type="module" src="auth.js"></script>
+    <script type="module" src="wordlist-manager.js"></script>
+    <script type="module" src="practice.js"></script>
+    <script type="module" src="ocr-processor.js"></script>
+    <script type="module" src="app.js"></script>
+</body>
+</html>
