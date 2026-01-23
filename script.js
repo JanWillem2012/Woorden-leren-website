@@ -1,5 +1,5 @@
 /* =============================================
-    WOORDMEESTER - APP LOGIC (SMART OCR UPDATE)
+    WOORDMEESTER - APP LOGIC (STRICT OCR UPDATE)
     =============================================
 */
 
@@ -40,13 +40,11 @@ const els = {
     authContainer: document.getElementById('auth-container'),
     views: document.querySelectorAll('.view'),
     
-    // Dashboard
     listsContainer: document.getElementById('lists-container'),
     dashWelcome: document.getElementById('dash-welcome-text'),
     statTotalLists: document.getElementById('stat-total-lists'),
     statTotalWords: document.getElementById('stat-total-words'),
     
-    // Editor & Scan
     btnCreate: document.getElementById('btn-create-new'),
     inputTitle: document.getElementById('list-title'),
     inputContent: document.getElementById('list-content'),
@@ -56,15 +54,13 @@ const els = {
     btnScanImg: document.getElementById('btn-scan-img'),
     imgInput: document.getElementById('img-upload-input'),
     scanStatus: document.getElementById('scan-status'),
-    processingCanvas: document.getElementById('processing-canvas'), // Nieuw
+    processingCanvas: document.getElementById('processing-canvas'),
     
-    // Practice
     btnBackDash2: document.getElementById('btn-back-dash-2'),
     practiceTitle: document.getElementById('practice-title-display'),
     modeFlash: document.getElementById('mode-flashcards'),
     modeInput: document.getElementById('mode-input'),
     
-    // Flashcard UI
     card: document.getElementById('flashcard'),
     fcQuestion: document.getElementById('fc-question'),
     fcAnswer: document.getElementById('fc-answer'),
@@ -72,7 +68,6 @@ const els = {
     btnFcNext: document.getElementById('btn-fc-next'),
     btnFcPrev: document.getElementById('btn-fc-prev'),
     
-    // Input Game UI
     ipQuestion: document.getElementById('ip-question'),
     ipInput: document.getElementById('ip-input'),
     btnIpCheck: document.getElementById('btn-ip-check'),
@@ -122,7 +117,7 @@ async function initApp() {
 
 els.btnForceLoad.addEventListener('click', () => els.loadingScreen.classList.add('fade-out'));
 
-// --- AUTHENTICATIE UI ---
+// --- AUTHENTICATIE ---
 
 function updateAuthUI() {
     els.loadingScreen.classList.add('fade-out');
@@ -148,16 +143,14 @@ function showView(viewId) {
     document.getElementById(viewId).classList.add('active');
 }
 
-// --- FIRESTORE LOGICA ---
+// --- FIRESTORE ---
 
 async function loadUserLists() {
     if(!user) return;
     els.listsContainer.innerHTML = '<div class="spinner"></div>';
-
     try {
         const q = query(collection(db, "lists"), where("userId", "==", user.id));
         const querySnapshot = await getDocs(q);
-        
         els.listsContainer.innerHTML = ''; 
         let totalWordsCount = 0;
         let totalListsCount = querySnapshot.size;
@@ -186,10 +179,8 @@ async function loadUserLists() {
             div.querySelector('.btn-delete').onclick = () => deleteList(docSnap.id);
             els.listsContainer.appendChild(div);
         });
-
         els.statTotalLists.textContent = totalListsCount;
         els.statTotalWords.textContent = totalWordsCount;
-
     } catch (e) {
         console.error(e);
         els.listsContainer.innerHTML = `<p style="color:red">Fout bij laden.</p>`;
@@ -206,35 +197,24 @@ async function saveList(name, content) {
             words.push({ q: parts[0].trim(), a: parts[1].trim() });
         }
     });
-
-    if(words.length === 0) return alert("Geen geldige woorden herkend. Gebruik het formaat: woord|betekenis");
-
+    if(words.length === 0) return alert("Geen geldige woorden. Formaat: vraag|antwoord");
     try {
-        await addDoc(collection(db, "lists"), {
-            userId: user.id, name: name || "Naamloze lijst", words: words, createdAt: serverTimestamp()
-        });
+        await addDoc(collection(db, "lists"), { userId: user.id, name: name || "Naamloze lijst", words: words, createdAt: serverTimestamp() });
         els.inputTitle.value = ''; els.inputContent.value = ''; els.wordCountBadge.textContent = '0 woorden herkend';
         showView('view-dashboard');
         loadUserLists();
-    } catch (e) {
-        alert("Opslaan mislukt: " + e.message);
-    }
+    } catch (e) { alert("Opslaan mislukt: " + e.message); }
 }
 
 async function deleteList(id) {
-    if(confirm("Lijst verwijderen?")) {
-        await deleteDoc(doc(db, "lists", id));
-        loadUserLists();
-    }
+    if(confirm("Lijst verwijderen?")) await deleteDoc(doc(db, "lists", id));
+    loadUserLists();
 }
 
-// --- NAVIGATIE ---
 els.btnCreate.addEventListener('click', () => showView('view-editor'));
 els.btnBackDash.addEventListener('click', () => showView('view-dashboard'));
 els.btnBackDash2.addEventListener('click', () => showView('view-dashboard'));
 els.quitButtons.forEach(b => b.addEventListener('click', () => showView('view-dashboard')));
-
-// --- EDITOR LOGICA ---
 els.inputContent.addEventListener('input', (e) => {
     const count = (e.target.value.match(/\|/g) || []).length;
     els.wordCountBadge.textContent = `${count} paren herkend`;
@@ -242,74 +222,81 @@ els.inputContent.addEventListener('input', (e) => {
 els.btnSave.addEventListener('click', () => saveList(els.inputTitle.value, els.inputContent.value));
 
 
-// --- SLIMME FOTO SCAN (OCR 2.0) ---
+// --- EXTRA STRICT OCR (ANT-HALLUCINATIE) ---
 
 els.btnScanImg.addEventListener('click', () => els.imgInput.click());
 
 els.imgInput.addEventListener('change', async (e) => {
     if(e.target.files.length === 0) return;
-    
     const file = e.target.files[0];
+    
     els.scanStatus.classList.remove('hidden');
-    els.scanStatus.innerHTML = `<i class="fa-solid fa-magic"></i> Foto verbeteren en scannen...`;
+    els.scanStatus.innerHTML = `<i class="fa-solid fa-magic"></i> Foto analyseren en ruis verwijderen...`;
 
     try {
-        // Stap 1: Foto voorbewerken (Contrast verhogen)
+        // 1. Preprocess
         const processedImageBlob = await preprocessImage(file);
 
-        // Stap 2: Scannen met Tesseract
-        const { data: { text } } = await Tesseract.recognize(processedImageBlob, 'nld+eng', {
+        // 2. Scan (vraag om layout analyse)
+        const result = await Tesseract.recognize(processedImageBlob, 'nld+eng', {
             logger: m => {
                 if(m.status === 'recognizing text') {
-                    els.scanStatus.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Tekst herkennen: ${Math.round(m.progress * 100)}%`;
+                    els.scanStatus.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Scannen: ${Math.round(m.progress * 100)}%`;
                 }
             }
         });
 
-        // Stap 3: Tekst opschonen met "Smart Logic"
-        const cleanText = cleanOCRText(text);
-        
+        // 3. STRICT Filter Logic
+        const strictText = processStrictOCR(result.data);
+
+        if(!strictText || strictText.trim().length === 0) {
+            els.scanStatus.innerHTML = `<span style="color:#ef4444"><i class="fa-solid fa-triangle-exclamation"></i> Geen duidelijke tekst gevonden. Probeer opnieuw.</span>`;
+            return; // Voeg niets toe als het ruis was
+        }
+
         if(els.inputContent.value.length > 0) {
-            els.inputContent.value += "\n" + cleanText;
+            els.inputContent.value += "\n" + strictText;
         } else {
-            els.inputContent.value = cleanText;
+            els.inputContent.value = strictText;
         }
         
-        els.scanStatus.innerHTML = `<i class="fa-solid fa-check"></i> Klaar! Controleer de tekst.`;
-        
-        // Trigger input event om count te updaten
-        els.inputContent.dispatchEvent(new Event('input'));
+        els.scanStatus.innerHTML = `<i class="fa-solid fa-check"></i> Tekst toegevoegd!`;
+        els.inputContent.dispatchEvent(new Event('input')); // Update teller
 
     } catch (error) {
         console.error(error);
-        els.scanStatus.textContent = "Fout bij scannen. Probeer een duidelijkere foto.";
+        els.scanStatus.textContent = "Fout bij scannen.";
     }
 });
 
-// Functie: Foto zwart-wit maken en contrast verhogen (Betere OCR)
 function preprocessImage(file) {
     return new Promise((resolve) => {
         const img = new Image();
         const reader = new FileReader();
-        
         reader.onload = (e) => {
             img.src = e.target.result;
             img.onload = () => {
                 const canvas = els.processingCanvas;
                 const ctx = canvas.getContext('2d');
-                canvas.width = img.width;
-                canvas.height = img.height;
-                ctx.drawImage(img, 0, 0);
+                // Resize grote foto's voor snelheid en minder ruis
+                let width = img.width;
+                let height = img.height;
+                const maxSize = 2000;
+                if (width > maxSize || height > maxSize) {
+                    const ratio = Math.min(maxSize / width, maxSize / height);
+                    width *= ratio;
+                    height *= ratio;
+                }
+                canvas.width = width;
+                canvas.height = height;
+                ctx.drawImage(img, 0, 0, width, height);
 
-                // Pixel manipulatie voor hoog contrast
-                const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                // High Contrast Filter
+                const imgData = ctx.getImageData(0, 0, width, height);
                 const d = imgData.data;
                 for (let i = 0; i < d.length; i += 4) {
-                    // Grijswaarden (Grayscale)
-                    let r = d[i]; let g = d[i+1]; let b = d[i+2];
-                    let v = 0.2126*r + 0.7152*g + 0.0722*b;
-                    // Drempelwaarde (Thresholding) - Alles lichter dan 128 wordt wit, donkerder wordt zwart
-                    v = (v >= 120) ? 255 : 0;
+                    let gray = 0.2126*d[i] + 0.7152*d[i+1] + 0.0722*d[i+2];
+                    let v = (gray >= 130) ? 255 : 0; // Hardere threshold
                     d[i] = d[i+1] = d[i+2] = v;
                 }
                 ctx.putImageData(imgData, 0, 0);
@@ -320,53 +307,57 @@ function preprocessImage(file) {
     });
 }
 
-// Functie: "AI" Logic om rommel te verwijderen en format te gokken
-function cleanOCRText(rawText) {
-    const lines = rawText.split('\n');
-    const cleanLines = lines.map(line => {
-        let l = line.trim();
-        
-        // Verwijder regels die korter zijn dan 3 letters (vaak ruis of paginanummers)
-        if (l.length < 3) return null;
+function processStrictOCR(ocrData) {
+    // We kijken nu naar de 'lines' en 'words' met confidence scores
+    const cleanLines = [];
 
-        // Vervang veelvoorkomende OCR fouten voor pipes
-        l = l.replace(/\s{2,}/g, '|'); // 2 of meer spaties -> pipe
-        l = l.replace(/\t/g, '|');      // Tabs -> pipe
-        
-        // Als er nog geen pipe is, probeer te gokken op basis van " - " of " = "
-        if(!l.includes('|')) {
-            l = l.replace(/\s[-=]\s/, '|'); // "woord - betekenis" -> "woord|betekenis"
+    if(!ocrData || !ocrData.lines) return "";
+
+    ocrData.lines.forEach(line => {
+        // Stap A: Filter slechte woorden eruit op basis van 'confidence'
+        const validWords = line.words.filter(w => {
+            // Confidence moet hoger zijn dan 70% OF het woord moet lang zijn en redelijk zeker
+            const highConfidence = w.confidence > 70;
+            const isLongWord = w.text.length > 3 && w.confidence > 60;
+            
+            // Filter symbolen eruit die vaak als noise verschijnen (alleen letters/nummers behouden)
+            const hasLetters = /[a-zA-Z0-9]/.test(w.text);
+            
+            return (highConfidence || isLongWord) && hasLetters;
+        });
+
+        // Stap B: Reconstruct line
+        let lineText = validWords.map(w => w.text).join(' ');
+
+        // Stap C: Is de overgebleven regel wel zinnig?
+        // Moet minimaal 2 karakters bevatten en niet alleen leestekens
+        if(lineText.replace(/[^a-zA-Z]/g, '').length < 2) return;
+
+        // Auto-fix layout
+        lineText = lineText.replace(/\t/g, '|');
+        lineText = lineText.replace(/ {2,}/g, '|'); // Dubbele spaties -> pipe
+        if(!lineText.includes('|') && lineText.includes('-')) {
+             lineText = lineText.replace('-', '|'); // Streepje -> pipe
         }
         
-        // Verwijder rare karakters aan begin/eind (bijv. . , ; ' )
-        l = l.replace(/^[^a-zA-Z0-9]+/, '');
-        
-        return l;
-    }).filter(l => l !== null && l.includes('|')); // Alleen regels bewaren die we hebben kunnen fixen
-    
-    // Als de filter te streng was (weinig resultaat), geef ruwere versie terug
-    if(cleanLines.length === 0 && lines.length > 0) {
-        return rawText.replace(/\t/g, '|').replace(/ {2,}/g, '|');
-    }
+        cleanLines.push(lineText);
+    });
 
     return cleanLines.join('\n');
 }
 
 
 // --- PRACTICE MODES ---
-
 function startPracticeSelection(id, listData) {
     state.currentList = listData;
     els.practiceTitle.textContent = `Oefenen: ${listData.name}`;
     showView('view-practice-select');
 }
-
 els.modeFlash.addEventListener('click', () => {
     setupPractice();
     showView('view-flashcards');
     renderFlashcard();
 });
-
 els.modeInput.addEventListener('click', () => {
     setupPractice();
     els.ipResults.classList.add('hidden');
@@ -375,7 +366,6 @@ els.modeInput.addEventListener('click', () => {
     showView('view-input-practice');
     renderInputQuestion();
 });
-
 function setupPractice() {
     const arr = [...state.currentList.words];
     for (let i = arr.length - 1; i > 0; i--) {
@@ -385,8 +375,6 @@ function setupPractice() {
     state.practiceData.words = arr;
     state.practiceData.currentIndex = 0;
 }
-
-// Flashcards
 function renderFlashcard() {
     const word = state.practiceData.words[state.practiceData.currentIndex];
     els.card.classList.remove('flipped');
@@ -412,8 +400,6 @@ els.btnFcPrev.addEventListener('click', () => {
         renderFlashcard();
     }
 });
-
-// Input Game
 function renderInputQuestion() {
     const word = state.practiceData.words[state.practiceData.currentIndex];
     els.ipQuestion.textContent = word.q;
@@ -452,5 +438,4 @@ function nextInput() {
 els.btnIpCheck.addEventListener('click', checkInput);
 els.ipInput.addEventListener('keypress', (e) => { if(e.key==='Enter') checkInput(); });
 
-// Start
 initApp();
