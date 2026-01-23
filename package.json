@@ -1,19 +1,12 @@
 {
-  "name": "word-learning-app",
+  "name": "wordmaster",
   "version": "1.0.0",
-  "type": "module",
+  "description": "Een webapplicatie voor het leren van woorden met OCR ondersteuning",
+  "main": "index.html",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
+    "dev": "npx serve .",
+    "build": "echo 'Build not required for static site'"
   },
-  "dependencies": {
-    "firebase": "^10.7.0",
-    "@clerk/clerk-js": "^4.28.2",
-    "tesseract.js": "^4.0.2",
-    "vite": "^5.0.0"
-  },
-  "devDependencies": {
-    "@types/tesseract.js": "^4.1.0"
-  }
+  "dependencies": {},
+  "devDependencies": {}
 }
