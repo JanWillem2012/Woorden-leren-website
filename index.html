@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Professionele app om woorden te leren met flashcards, typen en meer.">
+    <title>Woorden Leren Pro</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script> <!-- For OCR -->
+    <script type="module" src="app.js"></script>
+</head>
+<body>
+    <header>
+        <nav>
+            <div class="logo">Woorden Leren Pro</div>
+            <ul class="nav-links">
+                <li><a href="#home">Home</a></li>
+                <li><a href="#practice">Oefenen</a></li>
+                <li><a href="#scores">Scores</a></li>
+                <li><a href="#upload">Upload</a></li>
+            </ul>
+            <div id="auth-container">
+                <!-- Clerk auth will be rendered here -->
+            </div>
+            <div id="theme-toggle">
+                <button id="dark-mode-btn">Donker Modus</button>
+            </div>
+        </nav>
+    </header>
+    <main>
+        <section id="home">
+            <h1>Welkom bij Woorden Leren Pro</h1>
+            <p>Leer woorden op een interactieve en professionele manier.</p>
+        </section>
+        <section id="upload-section">
+            <h2>Upload Woordenlijst</h2>
+            <input type="file" id="wordlist-file" accept=".txt,.csv">
+            <button id="upload-btn">Upload</button>
+            <div id="ocr-section">
+                <h3>Of maak een foto van je woordenlijst</h3>
+                <video id="video" width="400" height="300" autoplay></video>
+                <canvas id="canvas" width="400" height="300" style="display:none;"></canvas>
+                <button id="capture-btn">Maak Foto</button>
+                <button id="process-ocr-btn">Verwerk Foto</button>
+                <pre id="ocr-result"></pre>
+            </div>
+            <button id="export-btn">Export Woordenlijst</button>
+        </section>
+        <section id="practice-section">
+            <h2>Oefenen</h2>
+            <select id="wordlist-select">
+                <!-- Wordlists populated here -->
+            </select>
+            <button id="shuffle-btn">Shuffle Woorden</button>
+            <button id="start-typing-btn">Oefen met Typen</button>
+            <button id="start-flashcards-btn">Oefen met Flashcards</button>
+            <button id="start-multiple-choice-btn">Oefen met Multiple Choice</button>
+            <div id="progress-bar-container">
+                <progress id="progress-bar" value="0" max="100"></progress>
+                <span id="progress-text">0%</span>
+            </div>
+            <div id="typing-practice" class="practice-mode">
+                <p id="question-typing"></p>
+                <input type="text" id="answer-input" placeholder="Typ het antwoord...">
+                <button id="submit-answer">Verzenden</button>
+                <p id="feedback-typing"></p>
+            </div>
+            <div id="flashcard-practice" class="practice-mode">
+                <div class="flashcard-container">
+                    <div class="flashcard" id="flashcard">
+                        <div class="front"></div>
+                        <div class="back"></div>
+                    </div>
+                </div>
+                <button id="flip-flashcard">Omdraaien</button>
+                <button id="next-flashcard">Volgende</button>
+                <button id="prev-flashcard">Vorige</button>
+            </div>
+            <div id="multiple-choice-practice" class="practice-mode">
+                <p id="question-mc"></p>
+                <div id="options-mc"></div>
+                <p id="feedback-mc"></p>
+            </div>
+        </section>
+        <section id="scores-section">
+            <h2>Jouw Scores en Statistieken</h2>
+            <ul id="scores-list"></ul>
+            <div id="leaderboard">
+                <h3>Leaderboard</h3>
+                <ul id="leaderboard-list"></ul>
+            </div>
+        </section>
+        <section id="profile-section">
+            <h2>Profiel</h2>
+            <p id="user-email"></p>
+            <button id="logout-btn">Uitloggen</button>
+        </section>
+    </main>
+    <footer>
+        <p>&copy; 2026 Woorden Leren Pro | Gemaakt door Jan Willem</p>
+        <ul class="footer-links">
+            <li><a href="#privacy">Privacy</a></li>
+            <li><a href="#terms">Voorwaarden</a></li>
+        </ul>
+    </footer>
+</body>
+</html>
