@@ -1,5 +1,5 @@
 /* =============================================
-    WOORDMEESTER - APP LOGIC (UPDATED)
+    WOORDMEESTER - APP LOGIC (SMART OCR UPDATE)
     =============================================
 */
 
@@ -26,7 +26,6 @@ let db;
 let clerk = null;
 let user = null;
 
-// State Management
 const state = {
     currentList: null,
     practiceData: { words: [], currentIndex: 0, score: 0 }
@@ -40,11 +39,13 @@ const els = {
     btnForceLoad: document.getElementById('btn-force-load'),
     authContainer: document.getElementById('auth-container'),
     views: document.querySelectorAll('.view'),
-    // Dashboard & Stats
+    
+    // Dashboard
     listsContainer: document.getElementById('lists-container'),
     dashWelcome: document.getElementById('dash-welcome-text'),
     statTotalLists: document.getElementById('stat-total-lists'),
     statTotalWords: document.getElementById('stat-total-words'),
+    
     // Editor & Scan
     btnCreate: document.getElementById('btn-create-new'),
     inputTitle: document.getElementById('list-title'),
@@ -55,11 +56,14 @@ const els = {
     btnScanImg: document.getElementById('btn-scan-img'),
     imgInput: document.getElementById('img-upload-input'),
     scanStatus: document.getElementById('scan-status'),
+    processingCanvas: document.getElementById('processing-canvas'), // Nieuw
+    
     // Practice
     btnBackDash2: document.getElementById('btn-back-dash-2'),
     practiceTitle: document.getElementById('practice-title-display'),
     modeFlash: document.getElementById('mode-flashcards'),
     modeInput: document.getElementById('mode-input'),
+    
     // Flashcard UI
     card: document.getElementById('flashcard'),
     fcQuestion: document.getElementById('fc-question'),
@@ -67,6 +71,7 @@ const els = {
     fcProgress: document.getElementById('fc-progress'),
     btnFcNext: document.getElementById('btn-fc-next'),
     btnFcPrev: document.getElementById('btn-fc-prev'),
+    
     // Input Game UI
     ipQuestion: document.getElementById('ip-question'),
     ipInput: document.getElementById('ip-input'),
@@ -79,29 +84,20 @@ const els = {
     quitButtons: document.querySelectorAll('.btn-quit-practice'),
 };
 
-// --- INITIALISATIE MET ERROR HANDLING ---
+// --- INITIALISATIE ---
 
 async function initApp() {
-    console.log("App initialisatie gestart...");
-    
-    // Timeout timer: als laden te lang duurt, toon error knop
     const timeoutTimer = setTimeout(() => {
         if(!els.loadingScreen.classList.contains('fade-out')) {
-            console.warn("Laden duurt lang...");
             els.errorFallback.classList.remove('hidden');
-            els.loadingText.textContent = "Verbinding duurt langer dan verwacht...";
+            els.loadingText.textContent = "Verbinding duurt lang...";
         }
     }, 4000);
 
     try {
-        // 1. Firebase Starten
-        console.log("Firebase initialiseren...");
         const app = initializeApp(firebaseConfig);
         db = getFirestore(app);
-        console.log("Firebase OK.");
 
-        // 2. Wachten op Clerk (via script tag)
-        console.log("Wachten op Clerk...");
         if (!window.Clerk) {
             await new Promise((resolve) => {
                 const checkClerk = setInterval(() => {
@@ -114,79 +110,48 @@ async function initApp() {
         }
         
         clerk = window.Clerk;
-        console.log("Clerk gevonden. Laden...");
         await clerk.load();
-        console.log("Clerk geladen.");
-
-        clearTimeout(timeoutTimer); // Timer stoppen, alles is gelukt
+        clearTimeout(timeoutTimer);
         updateAuthUI();
-
     } catch (error) {
-        console.error("FATALE FOUT BIJ STARTEN:", error);
-        els.loadingText.textContent = "Er ging iets mis: " + error.message;
+        console.error(error);
+        els.loadingText.textContent = "Fout: " + error.message;
         els.errorFallback.classList.remove('hidden');
     }
 }
 
-// Forceer laden knop (voor nood)
-els.btnForceLoad.addEventListener('click', () => {
-    els.loadingScreen.classList.add('fade-out');
-    console.log("Laden geforceerd door gebruiker.");
-});
-
+els.btnForceLoad.addEventListener('click', () => els.loadingScreen.classList.add('fade-out'));
 
 // --- AUTHENTICATIE UI ---
 
 function updateAuthUI() {
-    // Verwijder laadscherm
     els.loadingScreen.classList.add('fade-out');
-
     if (clerk.user) {
         user = clerk.user;
-        console.log("Gebruiker ingelogd:", user.firstName);
-        
-        els.authContainer.innerHTML = `
-            <div style="display:flex; align-items:center; gap:10px;">
-                <span>Hoi, ${user.firstName || 'Student'}</span>
-                <div id="user-button"></div>
-            </div>
-        `;
+        els.authContainer.innerHTML = `<div style="display:flex; align-items:center; gap:10px;"><span>${user.firstName}</span><div id="user-button"></div></div>`;
         clerk.mountUserButton(document.getElementById('user-button'));
-        
-        // Update welkomst tekst
         els.dashWelcome.textContent = `Welkom terug, ${user.firstName}!`;
-
         showView('view-dashboard');
         loadUserLists();
     } else {
-        console.log("Geen gebruiker ingelogd.");
         user = null;
         els.authContainer.innerHTML = `<button id="btn-login-nav" class="btn btn-primary">Inloggen</button>`;
-        
-        // Listeners opnieuw koppelen omdat innerHTML is overschreven
         document.getElementById('btn-login-nav').addEventListener('click', () => clerk.openSignIn());
         const heroBtn = document.getElementById('btn-login-hero');
         if(heroBtn) heroBtn.onclick = () => clerk.openSignUp(); 
-        
         showView('view-landing');
     }
 }
-
-
-// --- VIEW NAVIGATIE ---
 
 function showView(viewId) {
     els.views.forEach(v => v.classList.remove('active', 'hidden'));
     document.getElementById(viewId).classList.add('active');
 }
 
-
 // --- FIRESTORE LOGICA ---
 
 async function loadUserLists() {
     if(!user) return;
-    console.log("Lijsten ophalen voor:", user.id);
-    
     els.listsContainer.innerHTML = '<div class="spinner"></div>';
 
     try {
@@ -194,8 +159,6 @@ async function loadUserLists() {
         const querySnapshot = await getDocs(q);
         
         els.listsContainer.innerHTML = ''; 
-
-        // STATS BEREKENEN
         let totalWordsCount = 0;
         let totalListsCount = querySnapshot.size;
 
@@ -208,8 +171,7 @@ async function loadUserLists() {
 
         querySnapshot.forEach((docSnap) => {
             const list = docSnap.data();
-            totalWordsCount += list.words.length; // Tel woorden op
-
+            totalWordsCount += list.words.length;
             const div = document.createElement('div');
             div.className = 'list-card';
             div.innerHTML = `
@@ -220,26 +182,22 @@ async function loadUserLists() {
                     <button class="btn btn-outline btn-sm btn-delete"><i class="fa-solid fa-trash"></i></button>
                 </div>
             `;
-            // Listeners direct op de elementen
             div.querySelector('.btn-practice').onclick = () => startPracticeSelection(docSnap.id, list);
             div.querySelector('.btn-delete').onclick = () => deleteList(docSnap.id);
-            
             els.listsContainer.appendChild(div);
         });
 
-        // Update dashboard stats
         els.statTotalLists.textContent = totalListsCount;
         els.statTotalWords.textContent = totalWordsCount;
 
     } catch (e) {
-        console.error("Fout bij laden lijsten:", e);
+        console.error(e);
         els.listsContainer.innerHTML = `<p style="color:red">Fout bij laden.</p>`;
     }
 }
 
 async function saveList(name, content) {
     if(!user) return;
-    
     const lines = content.split('\n');
     const words = [];
     lines.forEach(line => {
@@ -253,83 +211,74 @@ async function saveList(name, content) {
 
     try {
         await addDoc(collection(db, "lists"), {
-            userId: user.id,
-            name: name || "Naamloze lijst",
-            words: words,
-            createdAt: serverTimestamp()
+            userId: user.id, name: name || "Naamloze lijst", words: words, createdAt: serverTimestamp()
         });
-        
-        els.inputTitle.value = '';
-        els.inputContent.value = '';
-        els.wordCountBadge.textContent = '0 woorden herkend';
-        
+        els.inputTitle.value = ''; els.inputContent.value = ''; els.wordCountBadge.textContent = '0 woorden herkend';
         showView('view-dashboard');
         loadUserLists();
     } catch (e) {
-        console.error("Save error:", e);
         alert("Opslaan mislukt: " + e.message);
     }
 }
 
 async function deleteList(id) {
-    if(confirm("Weet je zeker dat je deze lijst wilt verwijderen?")) {
+    if(confirm("Lijst verwijderen?")) {
         await deleteDoc(doc(db, "lists", id));
         loadUserLists();
     }
 }
 
-
-// --- UI EVENT LISTENERS ---
-
-// Navigatie
+// --- NAVIGATIE ---
 els.btnCreate.addEventListener('click', () => showView('view-editor'));
 els.btnBackDash.addEventListener('click', () => showView('view-dashboard'));
 els.btnBackDash2.addEventListener('click', () => showView('view-dashboard'));
 els.quitButtons.forEach(b => b.addEventListener('click', () => showView('view-dashboard')));
 
-// Editor & OCR
+// --- EDITOR LOGICA ---
 els.inputContent.addEventListener('input', (e) => {
     const count = (e.target.value.match(/\|/g) || []).length;
     els.wordCountBadge.textContent = `${count} paren herkend`;
 });
+els.btnSave.addEventListener('click', () => saveList(els.inputTitle.value, els.inputContent.value));
 
-els.btnSave.addEventListener('click', () => {
-    saveList(els.inputTitle.value, els.inputContent.value);
-});
 
-// Foto Scan Logica
-els.btnScanImg.addEventListener('click', () => {
-    els.imgInput.click();
-});
+// --- SLIMME FOTO SCAN (OCR 2.0) ---
+
+els.btnScanImg.addEventListener('click', () => els.imgInput.click());
 
 els.imgInput.addEventListener('change', async (e) => {
     if(e.target.files.length === 0) return;
     
     const file = e.target.files[0];
     els.scanStatus.classList.remove('hidden');
-    els.scanStatus.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Foto analyseren... even geduld.`;
+    els.scanStatus.innerHTML = `<i class="fa-solid fa-magic"></i> Foto verbeteren en scannen...`;
 
     try {
-        const { data: { text } } = await Tesseract.recognize(file, 'nld', {
-            logger: m => console.log(m)
+        // Stap 1: Foto voorbewerken (Contrast verhogen)
+        const processedImageBlob = await preprocessImage(file);
+
+        // Stap 2: Scannen met Tesseract
+        const { data: { text } } = await Tesseract.recognize(processedImageBlob, 'nld+eng', {
+            logger: m => {
+                if(m.status === 'recognizing text') {
+                    els.scanStatus.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Tekst herkennen: ${Math.round(m.progress * 100)}%`;
+                }
+            }
         });
 
-        // Basic formatting: probeer tabs en dubbele spaties te vervangen door |
-        // We voegen de tekst toe aan het bestaande veld
-        let formattedText = text.replace(/\t/g, '|').replace(/  +/g, '|');
+        // Stap 3: Tekst opschonen met "Smart Logic"
+        const cleanText = cleanOCRText(text);
         
-        // Als de textbox al tekst bevat, voeg een enter toe
         if(els.inputContent.value.length > 0) {
-            els.inputContent.value += "\n" + formattedText;
+            els.inputContent.value += "\n" + cleanText;
         } else {
-            els.inputContent.value = formattedText;
+            els.inputContent.value = cleanText;
         }
         
-        els.scanStatus.innerHTML = `<i class="fa-solid fa-check"></i> Klaar! Controleer of de '|' streepjes goed staan.`;
+        els.scanStatus.innerHTML = `<i class="fa-solid fa-check"></i> Klaar! Controleer de tekst.`;
         
-        // Update teller
-        const count = (els.inputContent.value.match(/\|/g) || []).length;
-        els.wordCountBadge.textContent = `${count} paren herkend`;
+        // Trigger input event om count te updaten
+        els.inputContent.dispatchEvent(new Event('input'));
 
     } catch (error) {
         console.error(error);
@@ -337,8 +286,75 @@ els.imgInput.addEventListener('change', async (e) => {
     }
 });
 
+// Functie: Foto zwart-wit maken en contrast verhogen (Betere OCR)
+function preprocessImage(file) {
+    return new Promise((resolve) => {
+        const img = new Image();
+        const reader = new FileReader();
+        
+        reader.onload = (e) => {
+            img.src = e.target.result;
+            img.onload = () => {
+                const canvas = els.processingCanvas;
+                const ctx = canvas.getContext('2d');
+                canvas.width = img.width;
+                canvas.height = img.height;
+                ctx.drawImage(img, 0, 0);
 
-// Practice Modes Starten
+                // Pixel manipulatie voor hoog contrast
+                const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const d = imgData.data;
+                for (let i = 0; i < d.length; i += 4) {
+                    // Grijswaarden (Grayscale)
+                    let r = d[i]; let g = d[i+1]; let b = d[i+2];
+                    let v = 0.2126*r + 0.7152*g + 0.0722*b;
+                    // Drempelwaarde (Thresholding) - Alles lichter dan 128 wordt wit, donkerder wordt zwart
+                    v = (v >= 120) ? 255 : 0;
+                    d[i] = d[i+1] = d[i+2] = v;
+                }
+                ctx.putImageData(imgData, 0, 0);
+                canvas.toBlob(resolve, 'image/png');
+            };
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
+// Functie: "AI" Logic om rommel te verwijderen en format te gokken
+function cleanOCRText(rawText) {
+    const lines = rawText.split('\n');
+    const cleanLines = lines.map(line => {
+        let l = line.trim();
+        
+        // Verwijder regels die korter zijn dan 3 letters (vaak ruis of paginanummers)
+        if (l.length < 3) return null;
+
+        // Vervang veelvoorkomende OCR fouten voor pipes
+        l = l.replace(/\s{2,}/g, '|'); // 2 of meer spaties -> pipe
+        l = l.replace(/\t/g, '|');      // Tabs -> pipe
+        
+        // Als er nog geen pipe is, probeer te gokken op basis van " - " of " = "
+        if(!l.includes('|')) {
+            l = l.replace(/\s[-=]\s/, '|'); // "woord - betekenis" -> "woord|betekenis"
+        }
+        
+        // Verwijder rare karakters aan begin/eind (bijv. . , ; ' )
+        l = l.replace(/^[^a-zA-Z0-9]+/, '');
+        
+        return l;
+    }).filter(l => l !== null && l.includes('|')); // Alleen regels bewaren die we hebben kunnen fixen
+    
+    // Als de filter te streng was (weinig resultaat), geef ruwere versie terug
+    if(cleanLines.length === 0 && lines.length > 0) {
+        return rawText.replace(/\t/g, '|').replace(/ {2,}/g, '|');
+    }
+
+    return cleanLines.join('\n');
+}
+
+
+// --- PRACTICE MODES ---
+
 function startPracticeSelection(id, listData) {
     state.currentList = listData;
     els.practiceTitle.textContent = `Oefenen: ${listData.name}`;
@@ -361,7 +377,6 @@ els.modeInput.addEventListener('click', () => {
 });
 
 function setupPractice() {
-    // Shuffle
     const arr = [...state.currentList.words];
     for (let i = arr.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -371,21 +386,16 @@ function setupPractice() {
     state.practiceData.currentIndex = 0;
 }
 
-
-// --- FLASHCARDS LOGICA ---
-
+// Flashcards
 function renderFlashcard() {
     const word = state.practiceData.words[state.practiceData.currentIndex];
     els.card.classList.remove('flipped');
-    
-    // Korte delay voor smooth effect
     setTimeout(() => {
         els.fcQuestion.textContent = word.q;
         els.fcAnswer.textContent = word.a;
         els.fcProgress.textContent = `${state.practiceData.currentIndex + 1} / ${state.practiceData.words.length}`;
     }, 200);
 }
-
 els.card.addEventListener('click', () => els.card.classList.toggle('flipped'));
 els.btnFcNext.addEventListener('click', () => {
     if(state.practiceData.currentIndex < state.practiceData.words.length - 1) {
@@ -403,45 +413,32 @@ els.btnFcPrev.addEventListener('click', () => {
     }
 });
 
-
-// --- INPUT GAME LOGICA ---
-
+// Input Game
 function renderInputQuestion() {
     const word = state.practiceData.words[state.practiceData.currentIndex];
     els.ipQuestion.textContent = word.q;
     els.ipInput.value = '';
     els.ipInput.focus();
     els.ipScore.textContent = `Score: ${state.practiceData.score}`;
-    
     const pct = (state.practiceData.currentIndex / state.practiceData.words.length) * 100;
     els.ipProgress.style.width = `${pct}%`;
 }
-
 function checkInput() {
     const word = state.practiceData.words[state.practiceData.currentIndex];
     const val = els.ipInput.value.trim().toLowerCase();
     const ans = word.a.trim().toLowerCase();
-    
     els.ipFeedback.classList.remove('hidden', 'correct', 'wrong');
-    
     if(val === ans) {
         state.practiceData.score++;
         els.ipFeedback.textContent = "Correct! 🎉";
         els.ipFeedback.classList.add('correct');
-        setTimeout(() => {
-            els.ipFeedback.classList.add('hidden');
-            nextInput();
-        }, 1000);
+        setTimeout(() => { els.ipFeedback.classList.add('hidden'); nextInput(); }, 1000);
     } else {
         els.ipFeedback.textContent = `Fout! Het was: ${word.a}`;
         els.ipFeedback.classList.add('wrong');
-        setTimeout(() => {
-            els.ipFeedback.classList.add('hidden');
-            nextInput();
-        }, 2500);
+        setTimeout(() => { els.ipFeedback.classList.add('hidden'); nextInput(); }, 2500);
     }
 }
-
 function nextInput() {
     state.practiceData.currentIndex++;
     if(state.practiceData.currentIndex < state.practiceData.words.length) {
@@ -452,9 +449,8 @@ function nextInput() {
         els.ipFinalScore.textContent = `${state.practiceData.score} / ${state.practiceData.words.length}`;
     }
 }
-
 els.btnIpCheck.addEventListener('click', checkInput);
 els.ipInput.addEventListener('keypress', (e) => { if(e.key==='Enter') checkInput(); });
 
-// --- START APP ---
+// Start
 initApp();
