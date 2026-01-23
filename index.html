@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WoordLeren - Woorden Leren</title>
+    <title>WoordLeren - Slim Leren</title>
     <link rel="stylesheet" href="style.css">
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -30,7 +30,6 @@
         <div id="error-fallback" class="hidden" style="margin-top: 20px; text-align: center;">
             <p style="color: #ef4444; margin-bottom: 10px;">Het duurt langer dan verwacht.</p>
             <button id="btn-force-load" class="btn btn-outline">Probeer toch te openen</button>
-            <p style="font-size: 0.8rem; margin-top: 10px; color: #666;">Tip: Open de console (F12) voor details.</p>
         </div>
     </div>
 
@@ -59,9 +58,9 @@
                     <p>Importeer eenvoudig via vraag|antwoord formaat.</p>
                 </div>
                 <div class="feature-card">
-                    <i class="fa-solid fa-camera"></i>
-                    <h3>Scan Foto's</h3>
-                    <p>Maak een foto van je boek en laat de AI typen.</p>
+                    <i class="fa-solid fa-wand-magic-sparkles"></i>
+                    <h3>Slimme AI Scan</h3>
+                    <p>Onze vernieuwde scanner herkent woorden beter dan ooit.</p>
                 </div>
                 <div class="feature-card">
                     <i class="fa-solid fa-chart-line"></i>
@@ -126,9 +125,12 @@
                         </button>
                     </div>
                 </div>
+                
+                <canvas id="processing-canvas" style="display:none;"></canvas>
+
                 <textarea id="list-content" placeholder="hond|dog&#10;kat|cat&#10;huis|house" class="textarea-field"></textarea>
                 <p id="scan-status" class="help-text hidden" style="color: var(--primary); font-weight: bold; margin-top:5px;">
-                    <i class="fa-solid fa-spinner fa-spin"></i> Bezig met scannen van foto...
+                    <i class="fa-solid fa-spinner fa-spin"></i> Bezig met scannen...
                 </p>
             </div>
 
