@@ -71,7 +71,7 @@ body {
 .feature-card { background: var(--surface); padding: 2rem; border-radius: var(--radius); text-align: center; box-shadow: var(--shadow); }
 .feature-card i { font-size: 2rem; color: var(--primary); margin-bottom: 1rem; }
 
-/* --- DASHBOARD STATS (NIEUW) --- */
+/* --- DASHBOARD STATS --- */
 .stats-container {
     background: linear-gradient(135deg, var(--primary), var(--primary-hover));
     color: white; border-radius: var(--radius); padding: 2rem; margin: 2rem 0;
@@ -89,7 +89,6 @@ body {
 .stat-card i { font-size: 1.5rem; margin-bottom: 0.5rem; display: block; opacity: 0.8; }
 .stat-card span { font-size: 1.5rem; font-weight: 700; display: block; line-height: 1; }
 .stat-card p { font-size: 0.85rem; opacity: 0.9; margin-top: 0.25rem; }
-
 
 /* --- DASHBOARD LISTS --- */
 .dashboard-header { display: flex; justify-content: space-between; align-items: center; margin: 2rem 0; }
@@ -141,7 +140,6 @@ body {
 .spinner { width: 40px; height: 40px; border: 4px solid var(--background); border-top: 4px solid var(--primary); border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 1rem; }
 @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-/* Mobiele optimalisatie stats */
 @media (max-width: 600px) {
     .stats-container { flex-direction: column; text-align: center; }
     .stat-cards { width: 100%; justify-content: center; }
