@@ -3,104 +3,92 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WoordLeren -  Woorden Leren</title>
+    <title>WoordMeester Pro</title>
     <link rel="stylesheet" href="style.css">
-    
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-    <script
-      async
-      crossorigin="anonymous"
-      data-clerk-publishable-key="pk_test_bm9ibGUtZmVsaW5lLTgxLmNsZXJrLmFjY291bnRzLmRldiQ"
-      src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"
-      type="text/javascript"
-    ></script>
+    <script async crossorigin="anonymous" data-clerk-publishable-key="pk_test_bm9ibGUtZmVsaW5lLTgxLmNsZXJrLmFjY291bnRzLmRldiQ" src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js" type="text/javascript"></script>
+    
+    <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
 </head>
 <body>
 
     <div id="loading-screen" class="loading-screen">
         <div class="spinner"></div>
-        <p id="loading-text">Applicatie verbinden...</p>
-        <div id="error-fallback" class="hidden" style="margin-top: 20px; text-align: center;">
-            <p style="color: #ef4444; margin-bottom: 10px;">Het duurt langer dan verwacht.</p>
-            <button id="btn-force-load" class="btn btn-outline">Probeer toch te openen</button>
-            <p style="font-size: 0.8rem; margin-top: 10px; color: #666;">Tip: Open de console (F12) voor details.</p>
-        </div>
+        <p>Laden...</p>
     </div>
 
     <nav class="navbar">
         <div class="container nav-content">
-            <div class="logo">
-                <i class="fa-solid fa-graduation-cap"></i> WoordLeren
-            </div>
-            <div id="auth-container" class="auth-buttons">
-                </div>
+            <div class="logo"><i class="fa-solid fa-bolt"></i> WoordMeester</div>
+            <div id="auth-container"></div>
         </div>
     </nav>
 
-    <main class="container main-content">
+    <main class="container">
         
         <section id="view-landing" class="view active">
             <div class="hero">
-                <h1>Beheers elke taal, <br>één woord tegelijk.</h1>
-                <p>Maak woordenlijsten, oefen met flashcards en verbeter je scores. Gratis en eenvoudig.</p>
-                <button id="btn-login-hero" class="btn btn-primary btn-lg">Start met Leren</button>
-            </div>
-            <div class="features">
-                <div class="feature-card">
-                    <i class="fa-solid fa-list-check"></i>
-                    <h3>Maak Lijsten</h3>
-                    <p>Importeer eenvoudig via vraag|antwoord formaat.</p>
-                </div>
-                <div class="feature-card">
-                    <i class="fa-solid fa-layer-group"></i>
-                    <h3>Flashcards</h3>
-                    <p>Oefen visueel en draai kaartjes om.</p>
-                </div>
-                <div class="feature-card">
-                    <i class="fa-solid fa-keyboard"></i>
-                    <h3>Schrijfmodus</h3>
-                    <p>Typ de antwoorden voor maximale resultaten.</p>
-                </div>
+                <h1>Leer sneller, <br>onthoud langer.</h1>
+                <p>Upload lijsten of maak een foto van je boek.</p>
+                <button id="btn-login-hero" class="btn btn-primary btn-lg">Begin nu</button>
             </div>
         </section>
 
         <section id="view-dashboard" class="view hidden">
+            <div class="welcome-box">
+                <h2 id="welcome-msg">Hoi! 👋</h2>
+                <p id="motivation-quote">"Je bent goed op weg, Tade zou trots op je zijn!"</p>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <span class="stat-value" id="stat-total-lists">0</span>
+                    <span class="stat-label">Lijsten</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-value" id="stat-total-words">0</span>
+                    <span class="stat-label">Woorden</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-value" id="stat-avg-score">0%</span>
+                    <span class="stat-label">Gem. Score</span>
+                </div>
+            </div>
+
             <div class="dashboard-header">
-                <h2>Mijn Woordenlijsten</h2>
-                <button id="btn-create-new" class="btn btn-primary">
-                    <i class="fa-solid fa-plus"></i> Nieuwe Lijst
-                </button>
+                <h3>Mijn Lijsten</h3>
+                <button id="btn-create-new" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Nieuwe Lijst</button>
             </div>
-            
-            <div id="lists-container" class="lists-grid">
-                <p class="empty-state">Lijsten worden geladen...</p>
-            </div>
+            <div id="lists-container" class="lists-grid"></div>
         </section>
 
         <section id="view-editor" class="view hidden">
             <div class="editor-header">
-                <button id="btn-back-dashboard" class="btn btn-text"><i class="fa-solid fa-arrow-left"></i> Terug</button>
-                <h2>Nieuwe Lijst Maken</h2>
+                <button id="btn-back-dashboard" class="btn btn-text"><i class="fa-solid fa-arrow-left"></i></button>
+                <h2>Lijst toevoegen</h2>
             </div>
 
             <div class="form-group">
-                <label for="list-title">Titel van de lijst</label>
-                <input type="text" id="list-title" placeholder="Bijv. Engels Hoofdstuk 1" class="input-field">
+                <input type="text" id="list-title" placeholder="Titel (bijv. Frans H3)" class="input-field">
+            </div>
+
+            <div class="ocr-section">
+                <p>Snel toevoegen:</p>
+                <label for="ocr-upload" class="btn btn-outline btn-full">
+                    <i class="fa-solid fa-camera"></i> Scan foto van lijst
+                </label>
+                <input type="file" id="ocr-upload" accept="image/*" hidden>
+                <div id="ocr-status" class="hidden">Bezig met scannen... <span id="ocr-perc">0%</span></div>
             </div>
 
             <div class="form-group">
-                <label for="list-content">Woorden (Formaat: vraag|antwoord)</label>
-                <p class="help-text">Elk woordpaar op een nieuwe regel. Gebruik een | streepje om te splitsen.</p>
-                <textarea id="list-content" placeholder="hond|dog&#10;kat|cat&#10;huis|house" class="textarea-field"></textarea>
+                <textarea id="list-content" placeholder="vraag | antwoord&#10;hond | dog" class="textarea-field"></textarea>
             </div>
 
-            <div class="editor-actions">
-                <span id="word-count-badge">0 woorden herkend</span>
+            <div class="editor-footer">
+                <span id="word-count">0 woorden</span>
                 <button id="btn-save-list" class="btn btn-success">Opslaan</button>
             </div>
         </section>
@@ -108,75 +96,48 @@
         <section id="view-practice-select" class="view hidden">
             <button id="btn-back-dash-2" class="btn btn-text"><i class="fa-solid fa-arrow-left"></i> Terug</button>
             <h2 id="practice-title-display">Oefenen</h2>
-            <p>Kies je oefenmethode:</p>
-
             <div class="practice-modes">
-                <div class="mode-card" id="mode-flashcards">
-                    <i class="fa-solid fa-clone"></i>
-                    <h3>Flashcards</h3>
-                    <p>Bekijk de vraag en draai om voor het antwoord.</p>
-                </div>
-                <div class="mode-card" id="mode-input">
-                    <i class="fa-solid fa-keyboard"></i>
-                    <h3>Invoeren</h3>
-                    <p>Typ het juiste antwoord en krijg een score.</p>
-                </div>
+                <div class="mode-card" id="mode-flashcards"><i class="fa-solid fa-clone"></i><h3>Flashcards</h3></div>
+                <div class="mode-card" id="mode-input"><i class="fa-solid fa-keyboard"></i><h3>Invoeren</h3></div>
             </div>
         </section>
 
         <section id="view-flashcards" class="view hidden">
             <div class="practice-header">
-                <button class="btn btn-text btn-quit-practice"><i class="fa-solid fa-xmark"></i> Stoppen</button>
-                <span id="fc-progress">1 / 10</span>
+                <button class="btn btn-text btn-quit-practice">Stop</button>
+                <span id="fc-progress">0/0</span>
             </div>
-            
             <div class="flashcard-container">
                 <div id="flashcard" class="flashcard">
                     <div class="flashcard-inner">
-                        <div class="flashcard-front">
-                            <h3 id="fc-question">?</h3>
-                            <p class="hint">Klik om te draaien</p>
-                        </div>
-                        <div class="flashcard-back">
-                            <h3 id="fc-answer">!</h3>
-                        </div>
+                        <div class="flashcard-front"><h3 id="fc-question">?</h3></div>
+                        <div class="flashcard-back"><h3 id="fc-answer">!</h3></div>
                     </div>
                 </div>
             </div>
-
             <div class="practice-controls">
-                <button id="btn-fc-prev" class="btn btn-outline"><i class="fa-solid fa-arrow-left"></i> Vorige</button>
-                <button id="btn-fc-next" class="btn btn-primary">Volgende <i class="fa-solid fa-arrow-right"></i></button>
+                <button id="btn-fc-prev" class="btn btn-outline">Vorige</button>
+                <button id="btn-fc-next" class="btn btn-primary">Volgende</button>
             </div>
         </section>
 
         <section id="view-input-practice" class="view hidden">
             <div class="practice-header">
-                <button class="btn btn-text btn-quit-practice"><i class="fa-solid fa-xmark"></i> Stoppen</button>
+                <button class="btn btn-text btn-quit-practice">Stop</button>
                 <span id="ip-score">Score: 0</span>
             </div>
-
             <div class="input-game-container">
-                <div class="progress-bar-bg">
-                    <div id="ip-progress-bar" class="progress-bar-fill" style="width: 0%"></div>
-                </div>
-
-                <div class="question-box">
-                    <h2 id="ip-question">Vraag</h2>
-                </div>
-
+                <h2 id="ip-question">Vraag</h2>
                 <div class="answer-box">
-                    <input type="text" id="ip-input" placeholder="Typ je antwoord hier..." autocomplete="off">
+                    <input type="text" id="ip-input" placeholder="Antwoord..." autocomplete="off">
                     <button id="btn-ip-check" class="btn btn-primary">Check</button>
                 </div>
-
                 <div id="ip-feedback" class="feedback-msg hidden"></div>
-            </div>
-             <div id="ip-results" class="results-modal hidden">
-                <h2>Oefening Voltooid!</h2>
-                <p>Je score:</p>
-                <div class="final-score" id="ip-final-score">8/10</div>
-                <button class="btn btn-primary btn-quit-practice">Terug naar Dashboard</button>
+                <div id="ip-results" class="results-modal hidden">
+                    <h3>Klaar!</h3>
+                    <div class="final-score" id="ip-final-score">0/0</div>
+                    <button class="btn btn-primary btn-quit-practice">Dashboard</button>
+                </div>
             </div>
         </section>
 
