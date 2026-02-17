@@ -1,16 +1,10 @@
-/* =============================================
-    WOORDMEESTER - APP LOGIC (STRICT OCR UPDATE)
-    =============================================
-*/
 
-// --- FIREBASE IMPORTS ---
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { 
     getFirestore, collection, addDoc, getDocs, 
     query, where, deleteDoc, doc, serverTimestamp 
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-// --- CONFIGURATIE ---
 const firebaseConfig = {
   apiKey: "AIzaSyBtW4BpxiEUOkscWS0POVSSmY57qFFemnQ",
   authDomain: "website-woorden-leren.firebaseapp.com",
@@ -21,7 +15,7 @@ const firebaseConfig = {
   measurementId: "G-JQ7HP8CJ04"
 };
 
-// Variabelen
+
 let db;
 let clerk = null;
 let user = null;
@@ -79,7 +73,6 @@ const els = {
     quitButtons: document.querySelectorAll('.btn-quit-practice'),
 };
 
-// --- INITIALISATIE ---
 
 async function initApp() {
     const timeoutTimer = setTimeout(() => {
@@ -117,7 +110,6 @@ async function initApp() {
 
 els.btnForceLoad.addEventListener('click', () => els.loadingScreen.classList.add('fade-out'));
 
-// --- AUTHENTICATIE ---
 
 function updateAuthUI() {
     els.loadingScreen.classList.add('fade-out');
@@ -143,7 +135,7 @@ function showView(viewId) {
     document.getElementById(viewId).classList.add('active');
 }
 
-// --- FIRESTORE ---
+
 
 async function loadUserLists() {
     if(!user) return;
@@ -222,7 +214,7 @@ els.inputContent.addEventListener('input', (e) => {
 els.btnSave.addEventListener('click', () => saveList(els.inputTitle.value, els.inputContent.value));
 
 
-// --- EXTRA STRICT OCR (ANT-HALLUCINATIE) ---
+
 
 els.btnScanImg.addEventListener('click', () => els.imgInput.click());
 
@@ -246,7 +238,7 @@ els.imgInput.addEventListener('change', async (e) => {
             }
         });
 
-        // 3. STRICT Filter Logic
+        
         const strictText = processStrictOCR(result.data);
 
         if(!strictText || strictText.trim().length === 0) {
