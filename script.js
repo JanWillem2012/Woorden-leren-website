@@ -1,4 +1,3 @@
-
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { 
     getFirestore, collection, addDoc, getDocs, 
@@ -25,7 +24,7 @@ const state = {
     practiceData: { words: [], currentIndex: 0, score: 0 }
 };
 
-// DOM Elementen
+
 const els = {
     loadingScreen: document.getElementById('loading-screen'),
     loadingText: document.getElementById('loading-text'),
@@ -226,10 +225,10 @@ els.imgInput.addEventListener('change', async (e) => {
     els.scanStatus.innerHTML = `<i class="fa-solid fa-magic"></i> Foto analyseren en ruis verwijderen...`;
 
     try {
-        // 1. Preprocess
+        
         const processedImageBlob = await preprocessImage(file);
 
-        // 2. Scan (vraag om layout analyse)
+        
         const result = await Tesseract.recognize(processedImageBlob, 'nld+eng', {
             logger: m => {
                 if(m.status === 'recognizing text') {
@@ -270,7 +269,6 @@ function preprocessImage(file) {
             img.onload = () => {
                 const canvas = els.processingCanvas;
                 const ctx = canvas.getContext('2d');
-                // Resize grote foto's voor snelheid en minder ruis
                 let width = img.width;
                 let height = img.height;
                 const maxSize = 2000;
@@ -283,7 +281,6 @@ function preprocessImage(file) {
                 canvas.height = height;
                 ctx.drawImage(img, 0, 0, width, height);
 
-                // High Contrast Filter
                 const imgData = ctx.getImageData(0, 0, width, height);
                 const d = imgData.data;
                 for (let i = 0; i < d.length; i += 4) {
