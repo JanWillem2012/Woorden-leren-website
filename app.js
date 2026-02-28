@@ -32,14 +32,14 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 // ===================== FIREBASE CONFIG =====================
-// 🔧 REPLACE THIS WITH YOUR FIREBASE CONFIG
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_AUTH_DOMAIN",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_STORAGE_BUCKET",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyBtW4BpxiEUOkscWS0POVSSmY57qFFemnQ",
+  authDomain: "website-woorden-leren.firebaseapp.com",
+  projectId: "website-woorden-leren",
+  storageBucket: "website-woorden-leren.firebasestorage.app",
+  messagingSenderId: "681548303319",
+  appId: "1:681548303319:web:05030d3639ebfaabe11992",
+  measurementId: "G-JQ7HP8CJ04"
 };
 
 const app = initializeApp(firebaseConfig);
