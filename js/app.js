@@ -146,8 +146,8 @@ function initApp() {
     demoCard1.addEventListener('click', () => demoFlipBtn.click());
   }
 
-  // Load after a short delay to allow firebase init
-  setTimeout(hideLoadingScreen, 1600);
+  // Hide loading screen quickly
+  setTimeout(hideLoadingScreen, 800);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -159,8 +159,13 @@ function qsa(sel, ctx = document) { return [...ctx.querySelectorAll(sel)]; }
 
 function hideLoadingScreen() {
   const ls = $('loadingScreen');
+  if (!ls) return;
   ls.classList.add('fade-out');
-  ls.addEventListener('transitionend', () => ls.remove(), { once: true });
+  ls.addEventListener('transitionend', () => {
+    if (ls.parentNode) ls.remove();
+  }, { once: true });
+  // Fallback: force remove after 600ms in case transitionend doesn't fire
+  setTimeout(() => { if (ls.parentNode) ls.remove(); }, 600);
 }
 
 // ─── Toast ──────────────────────────────────────────────────────────────────
@@ -293,7 +298,7 @@ function initNavigation() {
   });
 
   document.addEventListener('click', (e) => {
-    if (e.target.closest('.modal-overlay')) return;
+    if (_modalOpen) return;
     if (e.target.closest('.user-avatar-btn')) return;
     if (e.target.closest('[data-page]')) return;
     $('userDropdown')?.classList.add('hidden');
@@ -368,16 +373,19 @@ function updateAuthUI(user) {
   }
 }
 
+// ─── Modal state guard ───────────────────────────────────────────────────────
+let _modalOpen = false;
+
 function openAuthModal(tab = 'login') {
+  _modalOpen = true;
   const modal = $('authModal');
   modal.classList.remove('hidden');
-
-  // Switch to correct tab
   qsa('.auth-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
   qsa('.auth-panel').forEach(p => p.classList.toggle('active', p.id === `${tab}Panel`));
 }
 
 function closeAuthModal() {
+  _modalOpen = false;
   $('authModal').classList.add('hidden');
   clearAuthErrors();
 }
