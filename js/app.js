@@ -112,8 +112,37 @@ function initApp() {
 
   $('heroDemo').addEventListener('click', () => {
     loadDemoList();
+    // Show demo in dashboard even without login - temporarily allow it
+    State._demoMode = true;
     navigateTo('dashboard');
   });
+
+  // Hero demo card flip
+  const demoFlipBtn = document.querySelector('.demo-fc-flip');
+  const demoCard1   = document.querySelector('.demo-card-1');
+  if (demoFlipBtn && demoCard1) {
+    let flipped = false;
+    demoFlipBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      flipped = !flipped;
+      const wordEl   = demoCard1.querySelector('.demo-fc-word');
+      const labelEl  = demoCard1.querySelector('.demo-fc-label');
+      if (flipped) {
+        wordEl.textContent  = 'huis';
+        labelEl.textContent = 'Vertaling';
+        demoFlipBtn.textContent = 'Omdraaien';
+        demoCard1.style.background = 'var(--bg-elevated)';
+        wordEl.style.color = 'var(--accent)';
+      } else {
+        wordEl.textContent  = 'maison';
+        labelEl.textContent = 'Wat betekent dit?';
+        demoFlipBtn.textContent = 'Omdraaien';
+        demoCard1.style.background = '';
+        wordEl.style.color = '';
+      }
+    });
+    demoCard1.addEventListener('click', () => demoFlipBtn.click());
+  }
 
   // Load after a short delay to allow firebase init
   setTimeout(hideLoadingScreen, 1600);
@@ -224,7 +253,11 @@ function initNavigation() {
     if (!link) return;
     e.preventDefault();
     const page = link.dataset.page;
-    if (['dashboard', 'upload', 'stats'].includes(page) && !State.user) {
+    if (['upload', 'stats'].includes(page) && !State.user) {
+      openAuthModal('login');
+      return;
+    }
+    if (page === 'dashboard' && !State.user && !State._demoMode) {
       openAuthModal('login');
       return;
     }
@@ -389,7 +422,7 @@ async function googleAuth() {
     await fbFn.signInWithPopup(auth, provider);
     closeAuthModal();
     toast('Welkom! Je bent ingelogd.', 'success');
-    navigateTo('dashboard');
+    navigateTo('home');
   } catch (err) {
     console.error(err);
     toast('Google inloggen mislukt.', 'error');
@@ -406,7 +439,7 @@ async function emailLogin() {
     await fbFn.signInWithEmailAndPassword(auth, email, pass);
     closeAuthModal();
     toast('Welkom terug!', 'success');
-    navigateTo('dashboard');
+    navigateTo('home');
   } catch (err) {
     showAuthError('login', getAuthErrorMessage(err.code));
   }
@@ -434,7 +467,7 @@ async function emailRegister() {
     }
     closeAuthModal();
     toast('Account aangemaakt! Welkom bij LexiScan.', 'success');
-    navigateTo('dashboard');
+    navigateTo('home');
   } catch (err) {
     showAuthError('register', getAuthErrorMessage(err.code));
   }
@@ -861,7 +894,8 @@ async function saveWordList() {
 // DASHBOARD
 // ═══════════════════════════════════════════════════════════════════════════
 async function loadDashboard() {
-  if (!State.user) { navigateTo('home'); return; }
+  // Allow demo mode without login
+  if (!State.user && !State._demoMode) { navigateTo('home'); return; }
 
   const grid    = $('listsGrid');
   const empty   = $('listsEmpty');
@@ -872,7 +906,16 @@ async function loadDashboard() {
   show(loading);
 
   try {
-    State.wordLists = await DB.getLists(State.user.uid);
+    let fetched = [];
+    if (State.user) {
+      fetched = await DB.getLists(State.user.uid);
+    }
+    // Preserve demo list if it was added
+    const demoList = State.wordLists.find(l => l.id === 'demo');
+    State.wordLists = fetched;
+    if (demoList && !State.wordLists.find(l => l.id === 'demo')) {
+      State.wordLists.unshift(demoList);
+    }
     hide(loading);
 
     const filtered = filterLists(State.wordLists, State.currentFilter || 'all', '');
@@ -1155,6 +1198,12 @@ function startPractice(listId) {
   State.currentListId = listId;
   const list = State.wordLists.find(l => l.id === listId);
   if (!list) { toast('Lijst niet gevonden.', 'error'); return; }
+
+  // Require login for non-demo lists
+  if (!State.user && listId !== 'demo') {
+    openAuthModal('login');
+    return;
+  }
 
   if (!list.words || list.words.length === 0) {
     toast('Deze lijst heeft geen woorden.', 'error');
