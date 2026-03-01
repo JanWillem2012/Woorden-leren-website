@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LexiScan — Slimme Woordenlijst Trainer</title>
+  <meta name="description" content="Upload een foto van je woordenlijst en oefen met AI-gestuurde flashcards en typoefeningen." />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300;12..96,400;12..96,500;12..96,600;12..96,700;12..96,800&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Lora:ital,wght@0,400;0,600;1,400;1,600&display=swap" rel="stylesheet" />
+
+  <!-- Firebase SDK -->
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+    import { getAuth, GoogleAuthProvider, signInWithPopup, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+    import { getFirestore, collection, addDoc, getDocs, doc, deleteDoc, updateDoc, query, where, orderBy, serverTimestamp, getDoc, setDoc } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+
+    // ─── Firebase Config ────────────────────────────────────────────────────────
+    // VERVANG DIT MET JE EIGEN FIREBASE CONFIG
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_AUTH_DOMAIN",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_STORAGE_BUCKET",
+      messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    window.__firebaseApp = app;
+    window.__firebaseAuth = getAuth(app);
+    window.__firebaseDB = getFirestore(app);
+    window.__GoogleAuthProvider = GoogleAuthProvider;
+    window.__fbFunctions = {
+      signInWithPopup, createUserWithEmailAndPassword, signInWithEmailAndPassword,
+      signOut, onAuthStateChanged, collection, addDoc, getDocs, doc, deleteDoc,
+      updateDoc, query, where, orderBy, serverTimestamp, getDoc, setDoc
+    };
+    window.dispatchEvent(new Event('firebaseReady'));
+  </script>
+
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/animations.css" />
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     CURSOR GLOW
+══════════════════════════════════════════════════════════════════════════ -->
+<div id="cursorGlow"></div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     LOADING SCREEN
+══════════════════════════════════════════════════════════════════════════ -->
+<div id="loadingScreen" class="loading-screen">
+  <div class="loading-inner">
+    <div class="loading-logo">
+      <span class="logo-icon">⬡</span>
+      <span class="logo-text">LexiScan</span>
+    </div>
+    <div class="loading-bar-wrap">
+      <div class="loading-bar"></div>
+    </div>
+    <p class="loading-sub">Initialiseren…</p>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     AUTH MODAL
+══════════════════════════════════════════════════════════════════════════ -->
+<div id="authModal" class="modal-overlay hidden">
+  <div class="modal-card auth-card" data-aos="scale-in">
+    <button class="modal-close" id="authModalClose" aria-label="Sluiten">✕</button>
+    <div class="auth-logo">
+      <span class="logo-icon">⬡</span>
+      <span class="logo-text">LexiScan</span>
+    </div>
+
+    <!-- Tab switcher -->
+    <div class="auth-tabs">
+      <button class="auth-tab active" data-tab="login">Inloggen</button>
+      <button class="auth-tab" data-tab="register">Registreren</button>
+    </div>
+
+    <!-- Login panel -->
+    <div id="loginPanel" class="auth-panel active">
+      <button id="googleSignInBtn" class="btn-google">
+        <svg viewBox="0 0 24 24" width="20" height="20"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+        Doorgaan met Google
+      </button>
+      <div class="auth-divider"><span>of</span></div>
+      <div class="form-group">
+        <label>E-mailadres</label>
+        <input type="email" id="loginEmail" placeholder="jouw@email.nl" autocomplete="email" />
+      </div>
+      <div class="form-group">
+        <label>Wachtwoord</label>
+        <input type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password" />
+      </div>
+      <button class="btn-primary full-width" id="loginBtn">
+        <span>Inloggen</span>
+        <div class="btn-loader hidden"></div>
+      </button>
+      <p class="auth-error hidden" id="loginError"></p>
+    </div>
+
+    <!-- Register panel -->
+    <div id="registerPanel" class="auth-panel">
+      <button id="googleSignUpBtn" class="btn-google">
+        <svg viewBox="0 0 24 24" width="20" height="20"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+        Registreren met Google
+      </button>
+      <div class="auth-divider"><span>of</span></div>
+      <div class="form-group">
+        <label>Naam</label>
+        <input type="text" id="regName" placeholder="Jouw naam" autocomplete="name" />
+      </div>
+      <div class="form-group">
+        <label>E-mailadres</label>
+        <input type="email" id="regEmail" placeholder="jouw@email.nl" autocomplete="email" />
+      </div>
+      <div class="form-group">
+        <label>Wachtwoord</label>
+        <input type="password" id="regPassword" placeholder="Min. 6 tekens" autocomplete="new-password" />
+      </div>
+      <button class="btn-primary full-width" id="registerBtn">
+        <span>Account aanmaken</span>
+        <div class="btn-loader hidden"></div>
+      </button>
+      <p class="auth-error hidden" id="registerError"></p>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     NAVIGATION
+══════════════════════════════════════════════════════════════════════════ -->
+<nav id="mainNav" class="main-nav">
+  <div class="nav-inner">
+    <a href="#" class="nav-logo" id="navLogoBtn">
+      <span class="logo-icon">⬡</span>
+      <span class="logo-text">LexiScan</span>
+    </a>
+    <div class="nav-links" id="navLinks">
+      <a href="#" class="nav-link active" data-page="home">Home</a>
+      <a href="#" class="nav-link" data-page="dashboard" id="navDashboard">Mijn Lijsten</a>
+      <a href="#" class="nav-link" data-page="upload" id="navUpload">Uploaden</a>
+    </div>
+    <div class="nav-actions">
+      <div id="userMenuWrap" class="user-menu-wrap hidden">
+        <button class="user-avatar-btn" id="userAvatarBtn">
+          <img src="" alt="Avatar" id="userAvatarImg" class="user-avatar-img" />
+          <span id="userAvatarInitial" class="user-avatar-initial"></span>
+        </button>
+        <div class="user-dropdown hidden" id="userDropdown">
+          <div class="user-info">
+            <p class="user-name" id="dropdownName"></p>
+            <p class="user-email" id="dropdownEmail"></p>
+          </div>
+          <hr />
+          <button class="dropdown-item" data-page="dashboard">📚 Mijn Lijsten</button>
+          <button class="dropdown-item" data-page="stats">📊 Statistieken</button>
+          <hr />
+          <button class="dropdown-item danger" id="logoutBtn">🚪 Uitloggen</button>
+        </div>
+      </div>
+      <button class="btn-primary" id="navAuthBtn">
+        <span>Inloggen</span>
+      </button>
+    </div>
+    <button class="nav-hamburger" id="navHamburger" aria-label="Menu">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</nav>
+
+<!-- Mobile nav drawer -->
+<div class="mobile-nav-drawer hidden" id="mobileNavDrawer">
+  <div class="mobile-nav-links">
+    <a href="#" class="mobile-nav-link" data-page="home">Home</a>
+    <a href="#" class="mobile-nav-link" data-page="dashboard">Mijn Lijsten</a>
+    <a href="#" class="mobile-nav-link" data-page="upload">Uploaden</a>
+    <a href="#" class="mobile-nav-link" data-page="stats">Statistieken</a>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     PAGES WRAPPER
+══════════════════════════════════════════════════════════════════════════ -->
+<main id="appMain">
+
+  <!-- ─── PAGE: HOME ──────────────────────────────────────────────────────── -->
+  <section id="page-home" class="page active">
+
+    <!-- Hero -->
+    <div class="hero">
+      <div class="hero-bg">
+        <div class="hero-orb hero-orb-1"></div>
+        <div class="hero-orb hero-orb-2"></div>
+        <div class="hero-orb hero-orb-3"></div>
+        <div class="hero-grid"></div>
+      </div>
+      <div class="hero-content">
+        <div class="hero-badge">
+          <span class="badge-dot"></span>
+          AI-aangedreven woordtrainer
+        </div>
+        <h1 class="hero-title">
+          Van <em>foto</em> naar<br/>
+          <span class="hero-highlight">vloeiende kennis</span>
+        </h1>
+        <p class="hero-sub">
+          Upload een foto van je woordenlijst. Onze AI herkent de woorden en zet ze om in interactieve flashcards en typetoetsen — volledig gratis, onbeperkt.
+        </p>
+        <div class="hero-actions">
+          <button class="btn-primary hero-cta" id="heroCta">
+            <span>Begin nu</span>
+            <svg width="16" height="16" viewBox="0 0 16 16"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <button class="btn-ghost" id="heroDemo">
+            <span>Bekijk demo</span>
+          </button>
+        </div>
+        <div class="hero-stats">
+          <div class="hero-stat">
+            <strong>∞</strong>
+            <span>Gratis lijsten</span>
+          </div>
+          <div class="hero-stat-divider"></div>
+          <div class="hero-stat">
+            <strong>AI</strong>
+            <span>Tekst-OCR</span>
+          </div>
+          <div class="hero-stat-divider"></div>
+          <div class="hero-stat">
+            <strong>2 modi</strong>
+            <span>Leer methodes</span>
+          </div>
+        </div>
+      </div>
+      <div class="hero-visual">
+        <div class="hero-card-stack">
+          <div class="demo-card demo-card-3">
+            <span class="demo-card-label">Woordenlijst</span>
+          </div>
+          <div class="demo-card demo-card-2">
+            <div class="demo-word">
+              <span class="demo-word-nl">huis</span>
+              <span class="demo-word-en">house</span>
+            </div>
+          </div>
+          <div class="demo-card demo-card-1">
+            <div class="demo-flashcard-inner">
+              <p class="demo-fc-label">Wat betekent dit?</p>
+              <p class="demo-fc-word">maison</p>
+              <button class="demo-fc-flip">Omdraaien</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Features -->
+    <section class="features-section">
+      <div class="section-header">
+        <p class="section-eyebrow">Functies</p>
+        <h2 class="section-title">Alles wat je nodig hebt</h2>
+        <p class="section-sub">Van foto naar kennis in drie stappen.</p>
+      </div>
+      <div class="features-grid">
+        <div class="feature-card" data-delay="0">
+          <div class="feature-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          </div>
+          <h3>Foto Uploaden</h3>
+          <p>Maak een foto van je woordenlijst of upload een bestaande afbeelding. Ondersteunt JPEG, PNG, WebP en meer.</p>
+        </div>
+        <div class="feature-card" data-delay="100">
+          <div class="feature-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+          </div>
+          <h3>AI OCR Herkenning</h3>
+          <p>Gratis AI (via Tesseract.js + Claude API) herkent automatisch woorden en vertalingen uit je afbeelding.</p>
+        </div>
+        <div class="feature-card" data-delay="200">
+          <div class="feature-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-4 0v2"/><line x1="12" y1="12" x2="12" y2="16"/></svg>
+          </div>
+          <h3>Flashcards</h3>
+          <p>Oefen met animeerde flashcards. Markeer woorden als geweten of ongeweten en volg je voortgang.</p>
+        </div>
+        <div class="feature-card" data-delay="300">
+          <div class="feature-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </div>
+          <h3>Typen Oefenen</h3>
+          <p>Typ de vertaling in. Ontvang directe feedback met kleurmarkeringen voor fouten en correcte letters.</p>
+        </div>
+        <div class="feature-card" data-delay="400">
+          <div class="feature-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+          </div>
+          <h3>Statistieken</h3>
+          <p>Bekijk hoeveel je hebt geoefend, welke woorden je moeilijk vindt en je nauwkeurigheid over tijd.</p>
+        </div>
+        <div class="feature-card" data-delay="500">
+          <div class="feature-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+          </div>
+          <h3>Cloud Opslag</h3>
+          <p>Al je lijsten worden veilig opgeslagen in Firebase. Toegankelijk op elk apparaat, altijd gesynchroniseerd.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- How it works -->
+    <section class="how-section">
+      <div class="section-header">
+        <p class="section-eyebrow">Hoe werkt het</p>
+        <h2 class="section-title">In drie stappen klaar</h2>
+      </div>
+      <div class="steps-container">
+        <div class="step">
+          <div class="step-number">01</div>
+          <div class="step-content">
+            <h3>Upload je foto</h3>
+            <p>Maak een foto van je schoolboek, werkblad of zelfgemaakte woordenlijst en upload hem direct.</p>
+          </div>
+          <div class="step-arrow">→</div>
+        </div>
+        <div class="step">
+          <div class="step-number">02</div>
+          <div class="step-content">
+            <h3>AI verwerkt</h3>
+            <p>Onze gratis AI leest de tekst, herkent woordparen en slaat ze op in je persoonlijke bibliotheek.</p>
+          </div>
+          <div class="step-arrow">→</div>
+        </div>
+        <div class="step">
+          <div class="step-number">03</div>
+          <div class="step-content">
+            <h3>Oefen & Leer</h3>
+            <p>Kies flashcard modus of typeer-modus en oefen totdat alle woorden in je geheugen zitten.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CTA Banner -->
+    <section class="cta-banner">
+      <div class="cta-banner-bg">
+        <div class="cta-orb"></div>
+      </div>
+      <div class="cta-banner-content">
+        <h2>Klaar om te beginnen?</h2>
+        <p>Maak gratis een account en upload je eerste woordenlijst vandaag.</p>
+        <button class="btn-primary btn-large" id="ctaBannerBtn">
+          Gratis starten
+          <svg width="16" height="16" viewBox="0 0 16 16"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+    </section>
+
+  </section><!-- /page-home -->
+
+  <!-- ─── PAGE: UPLOAD ─────────────────────────────────────────────────────── -->
+  <section id="page-upload" class="page hidden">
+    <div class="page-header">
+      <h1 class="page-title">Woordenlijst Uploaden</h1>
+      <p class="page-desc">Upload een foto of afbeelding van je woordenlijst. De AI herkent de woorden automatisch.</p>
+    </div>
+
+    <!-- Upload zone -->
+    <div class="upload-container">
+      <div class="upload-zone" id="uploadZone">
+        <div class="upload-zone-inner">
+          <div class="upload-icon">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          </div>
+          <h3>Sleep een afbeelding hierheen</h3>
+          <p>of klik om te bladeren</p>
+          <span class="upload-formats">JPG, PNG, WebP, HEIC — max 10 MB</span>
+          <input type="file" id="fileInput" accept="image/*" hidden />
+          <button class="btn-primary" id="browseBtn">Bestand kiezen</button>
+        </div>
+        <div class="upload-drag-overlay">
+          <p>Laat los om te uploaden</p>
+        </div>
+      </div>
+
+      <!-- Preview + OCR result -->
+      <div id="uploadPreviewSection" class="upload-preview-section hidden">
+        <div class="preview-grid">
+          <div class="preview-image-wrap">
+            <h3 class="preview-section-title">Afbeelding</h3>
+            <div class="preview-img-container">
+              <img id="previewImg" src="" alt="Preview" />
+            </div>
+            <button class="btn-ghost small" id="changeImageBtn">Andere afbeelding kiezen</button>
+          </div>
+
+          <div class="preview-ocr-wrap">
+            <h3 class="preview-section-title">
+              Herkende woorden
+              <span class="badge-count" id="wordCountBadge">0 woorden</span>
+            </h3>
+
+            <div id="ocrProcessing" class="ocr-processing">
+              <div class="ocr-progress">
+                <div class="ocr-progress-bar" id="ocrProgressBar"></div>
+              </div>
+              <p id="ocrStatusText" class="ocr-status">Bezig met verwerken…</p>
+              <div class="ocr-steps">
+                <div class="ocr-step" id="step1"><span class="step-dot"></span>Afbeelding laden</div>
+                <div class="ocr-step" id="step2"><span class="step-dot"></span>Tekst herkennen (OCR)</div>
+                <div class="ocr-step" id="step3"><span class="step-dot"></span>Woordparen verwerken</div>
+                <div class="ocr-step" id="step4"><span class="step-dot"></span>Opslaan</div>
+              </div>
+            </div>
+
+            <div id="wordListEditor" class="word-list-editor hidden">
+              <p class="editor-hint">Controleer en bewerk de herkende woorden. Voeg extra woorden toe of verwijder foutieve items.</p>
+              <div id="wordPairsContainer" class="word-pairs-container"></div>
+              <button class="btn-dashed" id="addWordBtn">
+                <svg width="16" height="16" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
+                Woord toevoegen
+              </button>
+
+              <div class="list-meta">
+                <div class="form-group">
+                  <label>Naam van de lijst</label>
+                  <input type="text" id="listNameInput" placeholder="bijv. Frans H3 Hoofdstuk 5" />
+                </div>
+                <div class="form-group">
+                  <label>Taal (optioneel)</label>
+                  <input type="text" id="listLangInput" placeholder="bijv. Frans → Nederlands" />
+                </div>
+              </div>
+
+              <div class="editor-actions">
+                <button class="btn-ghost" id="cancelUploadBtn">Annuleren</button>
+                <button class="btn-primary" id="saveListBtn">
+                  <span>Lijst opslaan</span>
+                  <div class="btn-loader hidden"></div>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section><!-- /page-upload -->
+
+  <!-- ─── PAGE: DASHBOARD ──────────────────────────────────────────────────── -->
+  <section id="page-dashboard" class="page hidden">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Mijn Lijsten</h1>
+        <p class="page-desc">Alle opgeslagen woordenlijsten op één plek.</p>
+      </div>
+      <button class="btn-primary" id="newListBtn">
+        <svg width="16" height="16" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
+        Nieuwe lijst
+      </button>
+    </div>
+
+    <!-- Filter bar -->
+    <div class="filter-bar">
+      <input type="search" id="searchLists" placeholder="Zoek in lijsten…" class="search-input" />
+      <div class="filter-tabs">
+        <button class="filter-tab active" data-filter="all">Alle</button>
+        <button class="filter-tab" data-filter="recent">Recent</button>
+        <button class="filter-tab" data-filter="mastered">Beheerst</button>
+      </div>
+    </div>
+
+    <!-- Lists grid -->
+    <div id="listsGrid" class="lists-grid"></div>
+    <div id="listsEmpty" class="empty-state hidden">
+      <div class="empty-icon">📚</div>
+      <h3>Nog geen lijsten</h3>
+      <p>Upload je eerste woordenlijst om te beginnen!</p>
+      <button class="btn-primary" id="emptyUploadBtn">Upload nu</button>
+    </div>
+    <div id="listsLoading" class="loading-spinner-wrap">
+      <div class="spinner"></div>
+    </div>
+  </section><!-- /page-dashboard -->
+
+  <!-- ─── PAGE: PRACTICE ───────────────────────────────────────────────────── -->
+  <section id="page-practice" class="page hidden">
+    <div class="practice-header">
+      <button class="btn-ghost back-btn" id="backToDashboardBtn">
+        <svg width="16" height="16" viewBox="0 0 16 16"><path d="M10 3L4 8l6 5" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Terug
+      </button>
+      <div class="practice-list-info">
+        <h2 id="practiceListName">Lijst naam</h2>
+        <span id="practiceListMeta" class="practice-meta"></span>
+      </div>
+    </div>
+
+    <!-- Mode selector -->
+    <div id="modeSelectorSection" class="mode-selector-section">
+      <h3 class="mode-title">Kies oefenmodus</h3>
+      <div class="mode-cards">
+        <div class="mode-card" id="modeFlashcard">
+          <div class="mode-icon">🃏</div>
+          <h4>Flashcards</h4>
+          <p>Bekijk woorden één voor één. Draai de kaart om voor de vertaling.</p>
+          <button class="btn-primary mode-select-btn" data-mode="flashcard">Selecteren</button>
+        </div>
+        <div class="mode-card" id="modeType">
+          <div class="mode-icon">⌨️</div>
+          <h4>Typen</h4>
+          <p>Typ de vertaling in. Ontvang directe feedback op je antwoord.</p>
+          <button class="btn-primary mode-select-btn" data-mode="type">Selecteren</button>
+        </div>
+      </div>
+
+      <!-- Settings -->
+      <div class="practice-settings">
+        <div class="setting-row">
+          <label>Richting</label>
+          <div class="toggle-group">
+            <button class="toggle-btn active" data-dir="forward">Woord → Vertaling</button>
+            <button class="toggle-btn" data-dir="reverse">Vertaling → Woord</button>
+            <button class="toggle-btn" data-dir="mixed">Gemengd</button>
+          </div>
+        </div>
+        <div class="setting-row">
+          <label>Volgorde</label>
+          <div class="toggle-group">
+            <button class="toggle-btn active" data-order="sequential">Op volgorde</button>
+            <button class="toggle-btn" data-order="random">Willekeurig</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Flashcard mode -->
+    <div id="flashcardMode" class="practice-mode hidden">
+      <div class="fc-progress-wrap">
+        <div class="fc-progress">
+          <div class="fc-progress-bar" id="fcProgressBar"></div>
+        </div>
+        <span class="fc-progress-text" id="fcProgressText">0 / 0</span>
+      </div>
+
+      <div class="flashcard-scene" id="flashcardScene">
+        <div class="flashcard" id="theFlashcard">
+          <div class="flashcard-front">
+            <p class="fc-word-label">Woord</p>
+            <p class="fc-word" id="fcWordFront"></p>
+          </div>
+          <div class="flashcard-back">
+            <p class="fc-word-label">Vertaling</p>
+            <p class="fc-word" id="fcWordBack"></p>
+            <p class="fc-example" id="fcExample"></p>
+          </div>
+        </div>
+      </div>
+
+      <p class="fc-hint">Klik op de kaart om te draaien</p>
+
+      <div class="fc-buttons">
+        <button class="btn-fc btn-fc-wrong" id="fcWrongBtn">
+          <svg width="20" height="20" viewBox="0 0 20 20"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
+          Fout
+        </button>
+        <button class="btn-fc btn-fc-flip" id="fcFlipBtn">Draai kaart</button>
+        <button class="btn-fc btn-fc-correct" id="fcCorrectBtn">
+          <svg width="20" height="20" viewBox="0 0 20 20"><path d="M4 10l5 5 7-8" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Goed
+        </button>
+      </div>
+    </div>
+
+    <!-- Type mode -->
+    <div id="typeMode" class="practice-mode hidden">
+      <div class="fc-progress-wrap">
+        <div class="fc-progress">
+          <div class="fc-progress-bar" id="typeProgressBar"></div>
+        </div>
+        <span class="fc-progress-text" id="typeProgressText">0 / 0</span>
+      </div>
+
+      <div class="type-card">
+        <div class="type-card-inner">
+          <p class="type-question-label">Wat is de vertaling van:</p>
+          <p class="type-question" id="typeQuestion"></p>
+          <div class="type-input-wrap">
+            <input type="text" id="typeAnswerInput" class="type-input" placeholder="Typ hier je antwoord…" autocomplete="off" autocorrect="off" spellcheck="false" />
+            <button class="btn-primary" id="typeCheckBtn">Controleer</button>
+          </div>
+          <div id="typeFeedback" class="type-feedback hidden"></div>
+          <div id="typeNextWrap" class="type-next-wrap hidden">
+            <button class="btn-primary" id="typeNextBtn">Volgende →</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="type-keyboard-hint">
+        <kbd>Enter</kbd> om te controleren &nbsp;·&nbsp; <kbd>Tab</kbd> voor volgende
+      </div>
+    </div>
+
+    <!-- Results -->
+    <div id="practiceResults" class="practice-results hidden">
+      <div class="results-card">
+        <div class="results-animation">
+          <div class="results-emoji" id="resultsEmoji">🎉</div>
+        </div>
+        <h2 class="results-title">Sessie voltooid!</h2>
+        <div class="results-stats">
+          <div class="result-stat">
+            <strong id="resultCorrect">0</strong>
+            <span>Goed</span>
+          </div>
+          <div class="result-stat">
+            <strong id="resultWrong">0</strong>
+            <span>Fout</span>
+          </div>
+          <div class="result-stat">
+            <strong id="resultPercent">0%</strong>
+            <span>Score</span>
+          </div>
+        </div>
+        <div id="wrongWordsList" class="wrong-words-list"></div>
+        <div class="results-actions">
+          <button class="btn-ghost" id="practiceAgainBtn">Opnieuw oefenen</button>
+          <button class="btn-primary" id="backToListBtn">Terug naar lijst</button>
+        </div>
+      </div>
+    </div>
+  </section><!-- /page-practice -->
+
+  <!-- ─── PAGE: STATS ──────────────────────────────────────────────────────── -->
+  <section id="page-stats" class="page hidden">
+    <div class="page-header">
+      <h1 class="page-title">Statistieken</h1>
+      <p class="page-desc">Jouw voortgang in één oogopslag.</p>
+    </div>
+    <div class="stats-grid">
+      <div class="stat-card big">
+        <p class="stat-label">Totaal geoefend</p>
+        <p class="stat-value" id="totalPracticed">0</p>
+        <p class="stat-sub">woorden</p>
+      </div>
+      <div class="stat-card big">
+        <p class="stat-label">Nauwkeurigheid</p>
+        <p class="stat-value" id="totalAccuracy">—</p>
+        <p class="stat-sub">gemiddeld</p>
+      </div>
+      <div class="stat-card big">
+        <p class="stat-label">Sessies</p>
+        <p class="stat-value" id="totalSessions">0</p>
+        <p class="stat-sub">oefensessies</p>
+      </div>
+      <div class="stat-card big">
+        <p class="stat-label">Lijsten</p>
+        <p class="stat-value" id="totalLists">0</p>
+        <p class="stat-sub">aangemaakt</p>
+      </div>
+    </div>
+
+    <div class="stats-detail-grid">
+      <div class="stats-card-full">
+        <h3 class="stats-card-title">Moeilijke woorden</h3>
+        <div id="hardWordsList" class="hard-words-list">
+          <p class="placeholder-text">Nog geen oefendata beschikbaar.</p>
+        </div>
+      </div>
+      <div class="stats-card-full">
+        <h3 class="stats-card-title">Recente sessies</h3>
+        <div id="recentSessionsList" class="recent-sessions-list">
+          <p class="placeholder-text">Nog geen sessies gespeeld.</p>
+        </div>
+      </div>
+    </div>
+  </section><!-- /page-stats -->
+
+</main><!-- /appMain -->
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     DELETE CONFIRMATION MODAL
+══════════════════════════════════════════════════════════════════════════ -->
+<div id="deleteModal" class="modal-overlay hidden">
+  <div class="modal-card small-modal" data-aos="scale-in">
+    <div class="delete-icon">🗑️</div>
+    <h3>Lijst verwijderen?</h3>
+    <p>Dit kan niet ongedaan worden gemaakt. Alle woorden en statistieken van deze lijst worden permanent verwijderd.</p>
+    <div class="modal-actions">
+      <button class="btn-ghost" id="cancelDeleteBtn">Annuleren</button>
+      <button class="btn-danger" id="confirmDeleteBtn">Verwijderen</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     TOAST NOTIFICATIONS
+══════════════════════════════════════════════════════════════════════════ -->
+<div id="toastContainer" class="toast-container"></div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     SCRIPTS
+══════════════════════════════════════════════════════════════════════════ -->
+<!-- Tesseract.js for OCR -->
+<script src="https://unpkg.com/tesseract.js@5.1.0/dist/tesseract.min.js"></script>
+
+<script src="js/app.js" type="module"></script>
+
+</body>
+</html>
