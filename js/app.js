@@ -97,7 +97,8 @@ function initApp() {
   initAuthStateListener();
 
   // Hero CTA buttons
-  $('heroCta').addEventListener('click', () => {
+  $('heroCta').addEventListener('click', (e) => {
+    e.stopPropagation();
     if (State.user) {
       navigateTo('upload');
     } else {
@@ -105,7 +106,8 @@ function initApp() {
     }
   });
 
-  $('ctaBannerBtn').addEventListener('click', () => {
+  $('ctaBannerBtn').addEventListener('click', (e) => {
+    e.stopPropagation();
     if (State.user) navigateTo('upload');
     else openAuthModal('register');
   });
@@ -289,7 +291,10 @@ function initNavigation() {
     $('userDropdown').classList.toggle('hidden');
   });
 
-  document.addEventListener('click', () => $('userDropdown')?.classList.add('hidden'));
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('.modal-overlay') || e.target.closest('.user-avatar-btn')) return;
+    $('userDropdown')?.classList.add('hidden');
+  });
 
   // Back button
   $('backToDashboardBtn').addEventListener('click', () => navigateTo('dashboard'));
@@ -367,6 +372,10 @@ function openAuthModal(tab = 'login') {
   // Switch to correct tab
   qsa('.auth-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
   qsa('.auth-panel').forEach(p => p.classList.toggle('active', p.id === `${tab}Panel`));
+
+  // Prevent the click that opened the modal from immediately closing it
+  modal._justOpened = true;
+  setTimeout(() => { modal._justOpened = false; }, 100);
 }
 
 function closeAuthModal() {
@@ -382,9 +391,10 @@ function clearAuthErrors() {
 function initAuthModal() {
   $('authModalClose').addEventListener('click', closeAuthModal);
   $('authModal').addEventListener('click', (e) => {
+    if ($('authModal')._justOpened) return;
     if (e.target === $('authModal')) closeAuthModal();
   });
-  $('navAuthBtn').addEventListener('click', () => openAuthModal('login'));
+  $('navAuthBtn').addEventListener('click', (e) => { e.stopPropagation(); openAuthModal('login'); });
 
   // Tab switching
   qsa('.auth-tab').forEach(tab => {
