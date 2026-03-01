@@ -254,6 +254,7 @@ function initNavigation() {
     const link = e.target.closest('[data-page]');
     if (!link) return;
     e.preventDefault();
+    e.stopPropagation();
     const page = link.dataset.page;
     if (['upload', 'stats'].includes(page) && !State.user) {
       openAuthModal('login');
@@ -292,7 +293,9 @@ function initNavigation() {
   });
 
   document.addEventListener('click', (e) => {
-    if (e.target.closest('.modal-overlay') || e.target.closest('.user-avatar-btn')) return;
+    if (e.target.closest('.modal-overlay')) return;
+    if (e.target.closest('.user-avatar-btn')) return;
+    if (e.target.closest('[data-page]')) return;
     $('userDropdown')?.classList.add('hidden');
   });
 
@@ -372,10 +375,6 @@ function openAuthModal(tab = 'login') {
   // Switch to correct tab
   qsa('.auth-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
   qsa('.auth-panel').forEach(p => p.classList.toggle('active', p.id === `${tab}Panel`));
-
-  // Prevent the click that opened the modal from immediately closing it
-  modal._justOpened = true;
-  setTimeout(() => { modal._justOpened = false; }, 100);
 }
 
 function closeAuthModal() {
@@ -389,9 +388,9 @@ function clearAuthErrors() {
 }
 
 function initAuthModal() {
-  $('authModalClose').addEventListener('click', closeAuthModal);
+  $('authModalClose').addEventListener('click', (e) => { e.stopPropagation(); closeAuthModal(); });
   $('authModal').addEventListener('click', (e) => {
-    if ($('authModal')._justOpened) return;
+    e.stopPropagation();
     if (e.target === $('authModal')) closeAuthModal();
   });
   $('navAuthBtn').addEventListener('click', (e) => { e.stopPropagation(); openAuthModal('login'); });
